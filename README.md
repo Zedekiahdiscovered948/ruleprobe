@@ -35,81 +35,86 @@ npx ruleprobe --help
 
 > **Note:** The examples below reflect the current development HEAD (53 matchers, 9 categories). The published npm v0.1.0 shipped with 15 matchers. A new release will follow.
 
-**Parse an instruction file** to see what rules RuleProbe can extract. This is real output from parsing the repo's own instruction file:
+**Parse an instruction file** to see what rules RuleProbe can extract. This is real output from parsing the repo's included example instruction file:
 
 ```bash
-ruleprobe parse .github/copilot-instructions.md
+ruleprobe parse docs/example-instructions.md
 ```
 
 ```
-Extracted 16 rules:
-
-  error-no-empty-catch-1
-    Category: error-handling
-    Verifier: ast
-    Pattern:  no-empty-catch (*.ts)
-    Source:    "Structured logging and observable failure modes. Errors must be
-               actionable. No silent failures. No swallowed exceptions."
+Extracted 32 rules:
 
   forbidden-no-any-type-2
     Category: forbidden-pattern
     Verifier: ast
     Pattern:  no-any (*.ts)
-    Source:    "- TypeScript strict mode, no any types"
+    Source:    "- No any types anywhere in the codebase"
 
-  naming-kebab-case-files-5
+  error-no-empty-catch-6
+    Category: error-handling
+    Verifier: ast
+    Pattern:  no-empty-catch (*.ts)
+    Source:    "- No empty catch blocks; always handle or rethrow errors"
+
+  naming-kebab-case-files-17
     Category: naming
     Verifier: filesystem
     Pattern:  kebab-case (filenames)
-    Source:    "- File names: kebab-case (e.g., rule-extractor.ts, ast-verifier.ts)"
+    Source:    "- File names: kebab-case (e.g., user-service.ts, api-handler.ts)"
 
-  structure-jsdoc-required-16
-    Category: structure
-    Verifier: ast
-    Pattern:  jsdoc-required (*.ts)
-    Source:    "- Every public function has a JSDoc comment describing its contract"
+  dependency-pinned-versions-34
+    Category: dependency
+    Verifier: filesystem
+    Pattern:  pinned-dependencies (package.json)
+    Source:    "- All dependencies pinned to exact versions, no ^ or ~ ranges"
   ...
 ```
 
 **Verify agent output** against those rules. This is ruleprobe verifying its own source code:
 
 ```bash
-ruleprobe verify .github/copilot-instructions.md ./src --format text
+ruleprobe verify docs/example-instructions.md ./src --format text
 ```
 
 ```
 RuleProbe Adherence Report
 Agent: unknown | Model: unknown | Task: manual
 
-Rules: 16 total | 12 passed | 4 failed | Score: 75%
+Rules: 32 total | 23 passed | 9 failed | Score: 72%
 
-FAIL  error-handling/error-no-empty-catch-1
+FAIL  error-handling/error-no-empty-catch-6
       commands/run.ts:148 - found: empty catch block
       utils/safe-path.ts:103 - found: empty catch block
       verifier/ast-verifier.ts:248 - found: empty catch block
 PASS  forbidden-pattern/forbidden-no-any-type-2
-PASS  structure/structure-strict-mode-3
-PASS  structure/structure-named-exports-only-4
-PASS  naming/naming-kebab-case-files-5
-FAIL  naming/naming-camelcase-variables-6
+PASS  structure/structure-strict-mode-1
+PASS  structure/structure-named-exports-only-3
+PASS  naming/naming-kebab-case-files-17
+FAIL  naming/naming-camelcase-variables-18
       verifier/treesitter-loader.ts:75 - found: ParserCtor
       verifier/treesitter-loader.ts:76 - found: LanguageRef
-PASS  naming/naming-pascalcase-types-8
-PASS  test-requirement/test-files-exist-9
-FAIL  structure/structure-no-barrel-files-11
+PASS  naming/naming-pascalcase-types-20
+PASS  test-requirement/test-files-exist-25
+FAIL  structure/structure-no-barrel-files-24
       ast-checks/index.ts:5 - found: barrel file with 24 re-exports
       llm/index.ts:7 - found: barrel file with 9 re-exports
-PASS  import-pattern/import-no-path-aliases-12
-PASS  forbidden-pattern/forbidden-no-console-log-13
-PASS  structure/structure-max-file-length-15
-PASS  structure/structure-jsdoc-required-16
+PASS  import-pattern/import-no-path-aliases-28
+PASS  forbidden-pattern/forbidden-no-console-log-4
+PASS  structure/structure-max-file-length-22
+PASS  structure/structure-jsdoc-required-21
+PASS  dependency/dependency-pinned-versions-34
+...
 
 By Category:
   naming:             2/4 (50%)
-  forbidden-pattern:  3/3 (100%)
+  forbidden-pattern:  4/4 (100%)
   structure:          4/5 (80%)
-  import-pattern:     1/1 (100%)
+  import-pattern:     4/4 (100%)
   test-requirement:   2/2 (100%)
+  error-handling:     1/2 (50%)
+  type-safety:        2/4 (50%)
+  code-style:         2/5 (40%)
+  dependency:         2/2 (100%)
 ```
 
 Every failure includes the file, line number, and what was found. No ambiguity.
