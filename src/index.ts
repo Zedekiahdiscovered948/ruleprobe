@@ -19,7 +19,7 @@ import type {
   ReportFormat,
 } from './types.js';
 
-import { parseInstructionFile, parseInstructionContent } from './parsers/index.js';
+import { parseInstructionFile } from './parsers/index.js';
 import { parseMarkdown } from './parsers/markdown-parser.js';
 import { extractRules as extractRulesFromSections } from './parsers/rule-extractor.js';
 import { verifyOutput } from './verifier/index.js';

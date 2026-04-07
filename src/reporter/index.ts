@@ -6,12 +6,12 @@
  */
 
 import type { AdherenceReport, ReportFormat } from '../types.js';
-import { formatText, formatTextPlain } from './text.js';
+import { formatTextPlain } from './text.js';
 import { formatJson } from './json.js';
 import { formatMarkdown } from './markdown.js';
 import { formatRdjson } from './rdjson.js';
 
-export { formatText, formatTextPlain, formatParseText } from './text.js';
+export { formatTextPlain, formatParseText } from './text.js';
 export { formatJson } from './json.js';
 export { formatMarkdown, formatComparisonMarkdown } from './markdown.js';
 export { formatRdjson } from './rdjson.js';

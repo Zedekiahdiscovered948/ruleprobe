@@ -238,14 +238,18 @@ The parser reads your instruction file and identifies lines that map to determin
 | Category | Example instruction | What gets checked | Verifier |
 |----------|-------------------|-------------------|----------|
 | naming | "camelCase for variables" | Variable and function names in AST | AST |
+| naming | "camelCase" (general) | Variable and function names in AST | AST |
 | naming | "PascalCase for types" | Interface and type alias names | AST |
 | naming | "kebab-case file names" | File names on disk | Filesystem |
 | forbidden-pattern | "no any types" | Type annotations in AST | AST |
 | forbidden-pattern | "no console.log" | Call expressions in AST | AST |
+| forbidden-pattern | "max line length" | Line character count | Regex |
 | structure | "named exports only" | Export declarations | AST |
 | structure | "JSDoc on public functions" | JSDoc presence | AST |
-| structure | "max 300 lines per file" | File length | Regex |
+| structure | "max 300 lines per file" | File line count | Filesystem |
+| structure | "strict mode" | tsconfig.json compilerOptions.strict | Filesystem |
 | test-requirement | "test file for every source file" | Matching test files exist | Filesystem |
+| test-requirement | "test files named *.test.ts" | Test file naming convention | Filesystem |
 | import-pattern | "no path aliases" | Import specifiers | AST |
 | import-pattern | "no deep relative imports" | Import depth | AST |
 

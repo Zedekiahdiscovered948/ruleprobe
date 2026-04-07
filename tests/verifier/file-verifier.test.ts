@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { resolve, join } from 'node:path';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { verifyFileSystemRule } from '../../src/verifier/file-verifier.js';
+import { verifyFileSystemRule, collectFiles } from '../../src/verifier/file-verifier.js';
 import type { Rule } from '../../src/types.js';
 
 const fixturesDir = resolve(import.meta.dirname, '..', 'fixtures', 'sample-output');
@@ -35,21 +35,21 @@ function makeRule(
 describe('File verifier: passing fixtures', () => {
   it('finds no kebab-case violations in passing directory', () => {
     const rule = makeRule('kebab-case');
-    const result = verifyFileSystemRule(rule, passingDir);
+    const result = verifyFileSystemRule(rule, passingDir, collectFiles(passingDir));
     expect(result.passed).toBe(true);
     expect(result.evidence).toHaveLength(0);
   });
 
   it('finds no missing test files in passing directory', () => {
     const rule = makeRule('test-files-exist', true);
-    const result = verifyFileSystemRule(rule, passingDir);
+    const result = verifyFileSystemRule(rule, passingDir, collectFiles(passingDir));
     expect(result.passed).toBe(true);
     expect(result.evidence).toHaveLength(0);
   });
 
   it('finds no file length violations in passing directory (300 line max)', () => {
     const rule = makeRule('max-file-length', '300');
-    const result = verifyFileSystemRule(rule, passingDir);
+    const result = verifyFileSystemRule(rule, passingDir, collectFiles(passingDir));
     expect(result.passed).toBe(true);
     expect(result.evidence).toHaveLength(0);
   });
@@ -60,7 +60,7 @@ describe('File verifier: passing fixtures', () => {
 describe('File verifier: kebab-case file naming', () => {
   it('detects PascalCase file name violations', () => {
     const rule = makeRule('kebab-case');
-    const result = verifyFileSystemRule(rule, failingDir);
+    const result = verifyFileSystemRule(rule, failingDir, collectFiles(failingDir));
     expect(result.passed).toBe(false);
 
     // UserService.ts violates kebab-case
@@ -70,7 +70,7 @@ describe('File verifier: kebab-case file naming', () => {
 
   it('does not flag kebab-case file names', () => {
     const rule = makeRule('kebab-case');
-    const result = verifyFileSystemRule(rule, failingDir);
+    const result = verifyFileSystemRule(rule, failingDir, collectFiles(failingDir));
 
     // helpers.ts, long-file.ts, line-length.ts are all valid kebab-case
     const wrongFlags = result.evidence.filter((e) =>
@@ -85,7 +85,7 @@ describe('File verifier: kebab-case file naming', () => {
 describe('File verifier: test file existence', () => {
   it('detects missing test files in failing directory', () => {
     const rule = makeRule('test-files-exist', true);
-    const result = verifyFileSystemRule(rule, failingDir);
+    const result = verifyFileSystemRule(rule, failingDir, collectFiles(failingDir));
     expect(result.passed).toBe(false);
 
     // Failing directory has src/ files but no tests/ directory at all
@@ -99,7 +99,7 @@ describe('File verifier: test file existence', () => {
 describe('File verifier: max file length', () => {
   it('detects files exceeding 300-line limit', () => {
     const rule = makeRule('max-file-length', '300');
-    const result = verifyFileSystemRule(rule, failingDir);
+    const result = verifyFileSystemRule(rule, failingDir, collectFiles(failingDir));
     expect(result.passed).toBe(false);
 
     // long-file.ts has 509 lines
@@ -112,7 +112,7 @@ describe('File verifier: max file length', () => {
 
   it('reports correct line count in evidence', () => {
     const rule = makeRule('max-file-length', '300');
-    const result = verifyFileSystemRule(rule, failingDir);
+    const result = verifyFileSystemRule(rule, failingDir, collectFiles(failingDir));
 
     const longFileViolation = result.evidence.find((e) =>
       e.file.includes('long-file')
@@ -129,7 +129,7 @@ describe('File verifier: strict mode', () => {
   it('finds tsconfig.json in ancestor directory', () => {
     const rule = makeRule('strict-mode', true);
     // failingDir is under project root, which has tsconfig.json with strict: true
-    const result = verifyFileSystemRule(rule, failingDir);
+    const result = verifyFileSystemRule(rule, failingDir, collectFiles(failingDir));
     expect(result.passed).toBe(true);
   });
 
@@ -137,7 +137,7 @@ describe('File verifier: strict mode', () => {
     const rule = makeRule('strict-mode', true);
     const isolated = mkdtempSync(join(tmpdir(), 'ruleprobe-test-'));
     try {
-      const result = verifyFileSystemRule(rule, isolated);
+      const result = verifyFileSystemRule(rule, isolated, collectFiles(isolated));
       expect(result.passed).toBe(false);
       expect(result.evidence[0]!.found).toContain('tsconfig.json not found');
       expect(result.evidence[0]!.found).toContain('searched');
@@ -152,7 +152,7 @@ describe('File verifier: strict mode', () => {
     try {
       const tsconfigPath = join(isolated, 'tsconfig.json');
       writeFileSync(tsconfigPath, JSON.stringify({ compilerOptions: { strict: false } }));
-      const result = verifyFileSystemRule(rule, isolated);
+      const result = verifyFileSystemRule(rule, isolated, collectFiles(isolated));
       expect(result.passed).toBe(false);
       expect(result.evidence[0]!.found).toContain('strict');
     } finally {

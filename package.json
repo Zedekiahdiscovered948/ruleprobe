@@ -9,7 +9,7 @@
     "ruleprobe": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc && cp -r src/runner/task-templates dist/runner/task-templates",
+    "build": "tsc && mkdir -p dist/runner/task-templates && cp src/runner/task-templates/*.md dist/runner/task-templates/",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",

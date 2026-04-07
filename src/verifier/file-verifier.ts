@@ -234,32 +234,79 @@ function checkStrictMode(outputDir: string): Evidence[] {
  * @param outputDir - Root directory of agent output
  * @returns A RuleResult with pass/fail and evidence
  */
+/**
+ * Check that test files follow the *.test.ts naming pattern.
+ *
+ * Scans files in tests/ or test/ directories and flags any that
+ * don't end with .test.ts or .spec.ts.
+ */
+function checkTestFileNaming(
+  files: string[],
+  outputDir: string,
+): Evidence[] {
+  const evidence: Evidence[] = [];
+  const sourceFiles = filterSourceFiles(files);
+
+  for (const filePath of sourceFiles) {
+    const rel = relative(outputDir, filePath);
+    const isTestDir = rel.startsWith('tests/') || rel.startsWith('tests\\') ||
+      rel.startsWith('test/') || rel.startsWith('test\\');
+
+    if (!isTestDir) {
+      continue;
+    }
+
+    const name = basename(filePath);
+    if (!name.endsWith('.test.ts') && !name.endsWith('.spec.ts') &&
+        !name.endsWith('.test.js') && !name.endsWith('.spec.js')) {
+      evidence.push({
+        file: rel,
+        line: null,
+        found: name,
+        expected: '*.test.ts or *.spec.ts',
+        context: '',
+      });
+    }
+  }
+
+  return evidence;
+}
+
+/**
+ * Verify a filesystem rule against pre-collected files.
+ *
+ * Routes to the appropriate check function based on the rule's
+ * verification pattern type. Accepts a pre-collected file list
+ * to avoid redundant directory walks.
+ *
+ * @param rule - The rule to verify
+ * @param outputDir - Root directory of agent output
+ * @param files - Pre-collected file paths from the directory walk
+ * @returns A RuleResult with pass/fail and evidence
+ */
 export function verifyFileSystemRule(
   rule: Rule,
   outputDir: string,
-  allowSymlinks: boolean = false,
+  files: string[],
 ): RuleResult {
-  const allFiles = collectFiles(outputDir, allowSymlinks);
   const patternType = rule.pattern.type;
   let evidence: Evidence[];
 
   switch (patternType) {
     case 'kebab-case':
-      evidence = checkKebabCaseFileNames(allFiles, outputDir);
+      evidence = checkKebabCaseFileNames(files, outputDir);
       break;
     case 'test-files-exist':
-      evidence = checkTestFilesExist(allFiles, outputDir);
+      evidence = checkTestFilesExist(files, outputDir);
       break;
     case 'test-file-naming':
-      // This check is handled by kebab-case (test files also must be kebab-case)
-      // and test-files-exist (verifies the pattern). No separate action needed.
-      evidence = [];
+      evidence = checkTestFileNaming(files, outputDir);
       break;
     case 'max-file-length': {
       const maxLines = typeof rule.pattern.expected === 'string'
         ? parseInt(rule.pattern.expected, 10)
         : 300;
-      evidence = checkMaxFileLength(allFiles, outputDir, maxLines);
+      evidence = checkMaxFileLength(files, outputDir, maxLines);
       break;
     }
     case 'strict-mode':

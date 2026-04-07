@@ -6,6 +6,7 @@ tests/
 .vscode/
 .github/
 docs/
+SECURITY.md
 *.tsbuildinfo
 vitest.config.ts
 tsconfig.json

@@ -11,6 +11,7 @@ import { extname } from 'node:path';
 import type { Rule, RuleSet, RuleResult } from '../types.js';
 import { verifyAstRule } from './ast-verifier.js';
 import { verifyFileSystemRule, collectFiles, filterSourceFiles } from './file-verifier.js';
+export { verifyFileSystemRule } from './file-verifier.js';
 import { verifyRegexRule } from './regex-verifier.js';
 
 /** Options for output verification. */
@@ -47,7 +48,7 @@ export function verifyOutput(
   const results: RuleResult[] = [];
 
   for (const rule of ruleSet.rules) {
-    const result = verifyRule(rule, outputDir, codeFiles, sourceFiles, allowSymlinks);
+    const result = verifyRule(rule, outputDir, codeFiles, sourceFiles, allFiles);
     results.push(result);
   }
 
@@ -68,13 +69,13 @@ function verifyRule(
   outputDir: string,
   codeFiles: string[],
   sourceFiles: string[],
-  allowSymlinks: boolean,
+  allFiles: string[],
 ): RuleResult {
   switch (rule.verifier) {
     case 'ast':
       return verifyAstRule(rule, codeFiles);
     case 'filesystem':
-      return verifyFileSystemRule(rule, outputDir, allowSymlinks);
+      return verifyFileSystemRule(rule, outputDir, allFiles);
     case 'regex':
       return verifyRegexRule(rule, sourceFiles, outputDir);
     default:
@@ -86,6 +87,3 @@ function verifyRule(
   }
 }
 
-export { verifyAstRule } from './ast-verifier.js';
-export { verifyFileSystemRule } from './file-verifier.js';
-export { verifyRegexRule } from './regex-verifier.js';
