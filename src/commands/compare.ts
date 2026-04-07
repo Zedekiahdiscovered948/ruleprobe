@@ -105,7 +105,7 @@ export async function handleCompare(
       );
     }
 
-    const results = verifyOutput(effectiveRuleSet, outDir, { allowSymlinks: opts.allowSymlinks });
+    const results = await verifyOutput(effectiveRuleSet, outDir, { allowSymlinks: opts.allowSymlinks });
     const run: AgentRun = {
       agent: agentLabels[i]!,
       model: 'unknown',

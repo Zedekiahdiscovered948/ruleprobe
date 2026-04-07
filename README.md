@@ -160,9 +160,10 @@ ruleprobe verify AGENTS.md ./output --format markdown --severity error
 ruleprobe verify AGENTS.md ./output --format rdjson
 ruleprobe verify AGENTS.md ./output --config ruleprobe.config.ts
 ruleprobe verify AGENTS.md ./output --llm-extract
+ruleprobe verify AGENTS.md ./output --project tsconfig.json
 ```
 
-`--agent` and `--model` tag the report metadata. `--severity error|warning|all` filters results. `--output` writes to a file instead of stdout. `--format rdjson` produces reviewdog-compatible diagnostics. `--config` loads a specific config file (otherwise auto-discovered). `--llm-extract` runs unparseable lines through an LLM for additional rule extraction.
+`--agent` and `--model` tag the report metadata. `--severity error|warning|all` filters results. `--output` writes to a file instead of stdout. `--format rdjson` produces reviewdog-compatible diagnostics. `--config` loads a specific config file (otherwise auto-discovered). `--llm-extract` runs unparseable lines through an LLM for additional rule extraction. `--project` enables type-aware AST checks (implicit any, unused exports, unresolved imports) using the specified tsconfig.json.
 
 Exit codes: `0` all rules passed, `1` violations found, `2` execution error.
 
@@ -182,6 +183,20 @@ List available task templates or output a specific task prompt. Three templates 
 ruleprobe tasks
 ruleprobe task rest-endpoint
 ```
+
+### `ruleprobe run <instruction-file>`
+
+Invoke an AI agent on a task template, verify the output, and print the report in one step. Requires `@anthropic-ai/claude-agent-sdk` and `ANTHROPIC_API_KEY` for SDK mode. Alternatively, use `--watch` to point at a directory where you (or another agent) will write output manually.
+
+```bash
+# SDK mode: invoke Claude, verify, report
+ruleprobe run CLAUDE.md --task rest-endpoint --agent claude-code --model sonnet --format text
+
+# Watch mode: wait for output in a directory, then verify
+ruleprobe run CLAUDE.md --watch ./agent-output --timeout 300 --format json
+```
+
+Options: `--task`, `--agent`, `--model`, `--format`, `--output-dir`, `--watch`, `--timeout`, `--allow-symlinks`, `--config`.
 
 ## GitHub Action
 
@@ -298,48 +313,21 @@ The parser reads your instruction file and identifies lines that map to determin
 
 ## Supported Rule Types
 
-| Category | Example instruction | What gets checked | Verifier |
-|----------|-------------------|-------------------|----------|
-| naming | "camelCase for variables" | Variable and function names in AST | AST |
-| naming | "camelCase" (general) | Variable and function names in AST | AST |
-| naming | "PascalCase for types" | Interface and type alias names | AST |
-| naming | "kebab-case file names" | File names on disk | Filesystem |
-| forbidden-pattern | "no any types" | Type annotations in AST | AST |
-| forbidden-pattern | "no console.log" | Call expressions in AST | AST |
-| forbidden-pattern | "no console.warn/error" | Extended console method calls | AST |
-| forbidden-pattern | "max line length" | Line character count | Regex |
-| structure | "named exports only" | Export declarations | AST |
-| structure | "JSDoc on public functions" | JSDoc presence | AST |
-| structure | "max 300 lines per file" | File line count | Filesystem |
-| structure | "strict mode" | tsconfig.json compilerOptions.strict | Filesystem |
-| structure | "no barrel files" | Index re-export detection | AST |
-| structure | "README must exist" | File existence on disk | Filesystem |
-| structure | "CHANGELOG must exist" | File existence on disk | Filesystem |
-| structure | "formatter config required" | .prettierrc / .eslintrc detection | Filesystem |
-| test-requirement | "test file for every source file" | Matching test files exist | Filesystem |
-| test-requirement | "test files named *.test.ts" | Test file naming convention | Filesystem |
-| test-requirement | "no .only in tests" | Focused test detection | Regex |
-| test-requirement | "no .skip in tests" | Skipped test detection | Regex |
-| test-requirement | "no setTimeout in tests" | Timer usage in test files | AST |
-| import-pattern | "no path aliases" | Import specifiers | AST |
-| import-pattern | "no deep relative imports" | Import depth | AST |
-| import-pattern | "no namespace imports" | Star import detection | AST |
-| import-pattern | "ban specific packages" | Forbidden import sources | Regex |
-| error-handling | "no empty catch blocks" | Catch clause body inspection | AST |
-| error-handling | "throw Error instances only" | Throw expression types | AST |
-| type-safety | "no enums" | Enum declaration detection | AST |
-| type-safety | "no type assertions" | `as` keyword / angle bracket casts | AST |
-| type-safety | "no non-null assertions" | `!` postfix operator | AST |
-| type-safety | "no @ts-ignore / @ts-nocheck" | Directive comment detection | Regex |
-| code-style | "no nested ternary" | Ternary depth analysis | AST |
-| code-style | "no magic numbers" | Numeric literal usage | AST |
-| code-style | "no else after return" | Redundant else branches | AST |
-| code-style | "max function length" | Function body line count | AST |
-| code-style | "max parameters per function" | Parameter count | AST |
-| code-style | "single/double quote style" | Quote consistency in imports | Regex |
-| dependency | "pin dependency versions" | Exact version strings in package.json | Filesystem |
+51 built-in matchers across 9 categories:
 
-38 matchers across 9 categories. The parser is conservative: if it can't confidently map an instruction to a check, it skips it and reports the line as unparseable.
+| Category | Count | Verifier(s) |
+|----------|------:|-------------|
+| naming | 7 | AST, Filesystem, Tree-sitter |
+| forbidden-pattern | 5 | AST, Regex |
+| structure | 9 | AST, Filesystem |
+| test-requirement | 5 | AST, Filesystem, Regex |
+| import-pattern | 6 | AST, Regex |
+| error-handling | 2 | AST |
+| type-safety | 5 | AST, Regex |
+| code-style | 10 | AST, Regex, Tree-sitter |
+| dependency | 1 | Filesystem |
+
+Full table with example instructions and check details: [docs/matchers.md](docs/matchers.md)
 
 ## Security
 
@@ -347,13 +335,13 @@ RuleProbe never executes scanned code, never makes network calls, and never modi
 
 ## Limitations
 
-These are things v0.1.0 doesn't do. Stated plainly so you know before installing.
+What v0.1.0 doesn't do, stated plainly.
 
-- **TypeScript and JavaScript only.** AST checks use ts-morph. Other languages aren't supported.
-- **No subjective evaluation.** "Write clean code" can't be verified mechanically. Those lines show up in the unparseable array. `--llm-extract` can attempt to map some of them to existing checks, but subjective instructions remain unparseable.
-- **No automated agent invocation.** You run the agent yourself and point RuleProbe at the output directory. Automated invocation is planned for v0.2.0.
-- **Conservative extraction.** The parser would rather skip a rule than misclassify it. 38 matchers cover the most common instruction patterns. Check `--show-unparseable` to see what was missed.
-- **No compilation required.** ts-morph parses files in isolation, so it can analyze code that wouldn't compile. This is intentional (agent output often has errors), but it means some type-level checks are limited.
+- **TypeScript gets the deepest coverage.** ts-morph gives full AST analysis for TypeScript and JavaScript: naming, forbidden patterns, structure, imports, type-safety, and code-style checks. Python and Go get naming and function-length checks via tree-sitter WASM grammars. Everything else falls back to regex (line length, comments, semicolons). No Rust, Java, or C# AST support yet.
+- **Subjective rules stay subjective.** "Write clean code" has no deterministic check. `--rubric-decompose` uses an LLM to break subjective instructions into weighted concrete checks (max function length, no magic numbers, etc.), tagged with `extractionMethod: 'rubric'` and `confidence: 'low'`. This is a proxy, not a direct evaluation. Lines with no measurable proxy stay in the unparseable array.
+- **Agent invocation covers Claude SDK and watch mode only.** The `run` command invokes agents via the Claude Agent SDK or watches a directory for output. Copilot, Cursor, and other agent SDKs are not integrated; use `--watch` mode for those.
+- **Type-aware checks require --project.** Three checks (implicit any, unused exports, unresolved imports) need the TypeChecker, which requires a `tsconfig.json`. Without `--project`, ts-morph parses files in isolation and these checks are skipped. An async-return-check (flagging functions that return Promise without the `async` keyword) was considered but not implemented; the three delivered checks cover the higher-value cross-file analysis.
+- **51 matchers, not infinite.** The parser skips lines it can't confidently map to a check. Use `--show-unparseable` to see what was missed, and `--llm-extract` or `--rubric-decompose` to handle the remainder.
 
 ## Case Study
 

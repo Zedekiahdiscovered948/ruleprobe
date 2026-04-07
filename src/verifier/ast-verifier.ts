@@ -3,6 +3,8 @@
  *
  * Loads TypeScript/JavaScript files into a ts-morph Project and
  * routes each rule to the correct check function in ast-checks/.
+ * Supports two modes: per-file parsing (default) and project-aware
+ * analysis (when a tsconfig path is provided via --project).
  */
 
 import { Project, type SourceFile } from 'ts-morph';
@@ -30,6 +32,12 @@ import {
   checkNoNamespaceImports,
   checkNoBarrelFiles,
   checkNoSetTimeoutInTests,
+  checkImplicitAny,
+  checkUnusedExports,
+  checkUnresolvedImports,
+  checkNoVar,
+  checkPreferConst,
+  checkNoWildcardExports,
 } from '../ast-checks/index.js';
 
 /**
@@ -50,6 +58,28 @@ function createProject(): Project {
     useInMemoryFileSystem: false,
   });
 }
+
+/**
+ * Create a ts-morph Project from a tsconfig.json for type-aware analysis.
+ *
+ * Loads the full tsconfig so the TypeChecker can resolve types across
+ * files. Used when --project is specified.
+ *
+ * @param tsconfigPath - Absolute path to tsconfig.json
+ */
+function createTypeAwareProject(tsconfigPath: string): Project {
+  return new Project({
+    tsConfigFilePath: tsconfigPath,
+    skipAddingFilesFromTsConfig: false,
+  });
+}
+
+/** Pattern types that require a type-aware Project. */
+const TYPE_AWARE_PATTERNS = new Set([
+  'no-implicit-any',
+  'no-unused-exports',
+  'no-unresolved-imports',
+]);
 
 /**
  * Run the appropriate AST check for a rule against a single source file.
@@ -117,6 +147,12 @@ function runAstCheck(rule: Rule, filePath: string, sourceFile: SourceFile): Evid
       return checkNoBarrelFiles(sourceFile, filePath);
     case 'no-setTimeout-in-tests':
       return checkNoSetTimeoutInTests(sourceFile, filePath);
+    case 'no-var':
+      return checkNoVar(sourceFile, filePath);
+    case 'prefer-const':
+      return checkPreferConst(sourceFile, filePath);
+    case 'no-wildcard-exports':
+      return checkNoWildcardExports(sourceFile, filePath);
     default:
       return [];
   }
@@ -131,9 +167,35 @@ function runAstCheck(rule: Rule, filePath: string, sourceFile: SourceFile): Evid
  *
  * @param rule - The rule to verify
  * @param filePaths - Absolute paths to the files to check
+ * @param projectPath - Optional tsconfig.json path for type-aware checks
  * @returns A RuleResult with pass/fail and evidence
  */
-export function verifyAstRule(rule: Rule, filePaths: string[]): RuleResult {
+export function verifyAstRule(
+  rule: Rule,
+  filePaths: string[],
+  projectPath?: string,
+): RuleResult {
+  const isTypeAware = TYPE_AWARE_PATTERNS.has(rule.pattern.type);
+
+  // Type-aware checks require a project path; skip gracefully without one
+  if (isTypeAware && !projectPath) {
+    return {
+      rule,
+      passed: true,
+      evidence: [{
+        file: '',
+        line: null,
+        found: 'skipped (requires --project flag with tsconfig.json path)',
+        expected: rule.pattern.type,
+        context: '',
+      }],
+    };
+  }
+
+  if (isTypeAware && projectPath) {
+    return verifyTypeAwareRule(rule, filePaths, projectPath);
+  }
+
   const project = createProject();
   const allEvidence: Evidence[] = [];
 
@@ -158,4 +220,76 @@ export function verifyAstRule(rule: Rule, filePaths: string[]): RuleResult {
     passed: allEvidence.length === 0,
     evidence: allEvidence,
   };
+}
+
+/**
+ * Run type-aware checks using a full ts-morph Project with tsconfig.
+ *
+ * Creates a Project from the tsconfig, adds any extra files not in
+ * the config, then runs the type-aware check.
+ */
+function verifyTypeAwareRule(
+  rule: Rule,
+  filePaths: string[],
+  tsconfigPath: string,
+): RuleResult {
+  const project = createTypeAwareProject(tsconfigPath);
+  const allEvidence: Evidence[] = [];
+
+  // Add files that might not be in the tsconfig
+  for (const fp of filePaths) {
+    try {
+      if (!project.getSourceFile(fp)) {
+        project.addSourceFileAtPath(fp);
+      }
+    } catch {
+      // Skip files we can't add
+    }
+  }
+
+  for (const fp of filePaths) {
+    try {
+      const sourceFile = project.getSourceFile(fp);
+      if (!sourceFile) {
+        continue;
+      }
+      const evidence = runTypeAwareCheck(rule, fp, sourceFile, project);
+      allEvidence.push(...evidence);
+    } catch {
+      allEvidence.push({
+        file: fp,
+        line: null,
+        found: 'file could not be type-checked',
+        expected: 'type-checkable file',
+        context: '',
+      });
+    }
+  }
+
+  return {
+    rule,
+    passed: allEvidence.length === 0,
+    evidence: allEvidence,
+  };
+}
+
+/**
+ * Route a type-aware rule to its checker.
+ */
+function runTypeAwareCheck(
+  rule: Rule,
+  filePath: string,
+  sourceFile: SourceFile,
+  project: Project,
+): Evidence[] {
+  switch (rule.pattern.type) {
+    case 'no-implicit-any':
+      return checkImplicitAny(sourceFile, filePath, project);
+    case 'no-unused-exports':
+      return checkUnusedExports(sourceFile, filePath, project);
+    case 'no-unresolved-imports':
+      return checkUnresolvedImports(sourceFile, filePath, project);
+    default:
+      return [];
+  }
 }

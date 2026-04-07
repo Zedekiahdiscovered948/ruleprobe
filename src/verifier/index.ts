@@ -2,9 +2,9 @@
  * Verification orchestrator.
  *
  * Takes a RuleSet and an output directory, routes each rule to
- * the correct verifier (AST, filesystem, or regex), collects all
- * RuleResults, and returns them. Handles errors gracefully: if a
- * file can't be parsed, it's logged in evidence and skipped.
+ * the correct verifier (AST, filesystem, regex, or tree-sitter),
+ * collects all RuleResults, and returns them. Handles errors
+ * gracefully: if a file can't be parsed, it's logged in evidence.
  */
 
 import { extname } from 'node:path';
@@ -13,11 +13,14 @@ import { verifyAstRule } from './ast-verifier.js';
 import { verifyFileSystemRule, collectFiles, filterSourceFiles } from './file-verifier.js';
 export { verifyFileSystemRule } from './file-verifier.js';
 import { verifyRegexRule } from './regex-verifier.js';
+import { verifyTreeSitterRule } from './treesitter-verifier.js';
 
 /** Options for output verification. */
 export interface VerifyOptions {
   /** Whether to follow symlinks during directory traversal. Defaults to false. */
   allowSymlinks?: boolean;
+  /** Path to tsconfig.json for type-aware AST checks. */
+  projectPath?: string;
 }
 
 /**
@@ -32,12 +35,13 @@ export interface VerifyOptions {
  * @param options - Verification options (allowSymlinks, etc.)
  * @returns Array of RuleResults, one per rule, in the same order as ruleSet.rules
  */
-export function verifyOutput(
+export async function verifyOutput(
   ruleSet: RuleSet,
   outputDir: string,
   options: VerifyOptions = {},
-): RuleResult[] {
+): Promise<RuleResult[]> {
   const allowSymlinks = options.allowSymlinks ?? false;
+  const projectPath = options.projectPath;
   const allFiles = collectFiles(outputDir, allowSymlinks);
   const sourceFiles = filterSourceFiles(allFiles);
 
@@ -45,10 +49,16 @@ export function verifyOutput(
   const codeExtensions = new Set(['.ts', '.tsx', '.js', '.jsx']);
   const codeFiles = allFiles.filter((f) => codeExtensions.has(extname(f)));
 
+  // Filter to Python and Go files for tree-sitter checks
+  const treeSitterExtensions = new Set(['.py', '.go']);
+  const treeSitterFiles = allFiles.filter((f) => treeSitterExtensions.has(extname(f)));
+
   const results: RuleResult[] = [];
 
   for (const rule of ruleSet.rules) {
-    const result = verifyRule(rule, outputDir, codeFiles, sourceFiles, allFiles);
+    const result = await verifyRule(
+      rule, outputDir, codeFiles, sourceFiles, allFiles, treeSitterFiles, projectPath,
+    );
     results.push(result);
   }
 
@@ -57,27 +67,25 @@ export function verifyOutput(
 
 /**
  * Verify a single rule, routing to the correct verifier.
- *
- * @param rule - The rule to verify
- * @param outputDir - Root directory of agent output
- * @param codeFiles - Pre-collected code file paths
- * @param sourceFiles - Pre-collected source file paths
- * @returns The verification result
  */
-function verifyRule(
+async function verifyRule(
   rule: Rule,
   outputDir: string,
   codeFiles: string[],
   sourceFiles: string[],
   allFiles: string[],
-): RuleResult {
+  treeSitterFiles: string[],
+  projectPath?: string,
+): Promise<RuleResult> {
   switch (rule.verifier) {
     case 'ast':
-      return verifyAstRule(rule, codeFiles);
+      return verifyAstRule(rule, codeFiles, projectPath);
     case 'filesystem':
       return verifyFileSystemRule(rule, outputDir, allFiles);
     case 'regex':
       return verifyRegexRule(rule, sourceFiles, outputDir);
+    case 'treesitter':
+      return verifyTreeSitterRule(rule, treeSitterFiles);
     default:
       return {
         rule,

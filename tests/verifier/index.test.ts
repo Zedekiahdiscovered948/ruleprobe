@@ -50,9 +50,9 @@ describe('Verifier orchestrator: passing fixtures', () => {
     makeRule('strict-mode', 'structure', 'filesystem', 'strict-mode', 'tsconfig.json', true, 'project'),
   ];
 
-  it('returns all rules as passing', () => {
+  it('returns all rules as passing', async () => {
     const ruleSet = buildRuleSet(rules);
-    const results = verifyOutput(ruleSet, passingDir);
+    const results = await verifyOutput(ruleSet, passingDir);
 
     expect(results).toHaveLength(rules.length);
     for (const r of results) {
@@ -60,9 +60,9 @@ describe('Verifier orchestrator: passing fixtures', () => {
     }
   });
 
-  it('preserves rule order in results', () => {
+  it('preserves rule order in results', async () => {
     const ruleSet = buildRuleSet(rules);
-    const results = verifyOutput(ruleSet, passingDir);
+    const results = await verifyOutput(ruleSet, passingDir);
 
     for (let i = 0; i < rules.length; i++) {
       expect(results[i]!.rule.id).toBe(rules[i]!.id);
@@ -86,18 +86,18 @@ describe('Verifier orchestrator: failing fixtures', () => {
     makeRule('strict-mode', 'structure', 'filesystem', 'strict-mode', 'tsconfig.json', true, 'project'),
   ];
 
-  it('flags multiple rules as failing', () => {
+  it('flags multiple rules as failing', async () => {
     const ruleSet = buildRuleSet(rules);
-    const results = verifyOutput(ruleSet, failingDir);
+    const results = await verifyOutput(ruleSet, failingDir);
 
     const failed = results.filter((r) => !r.passed);
     // strict-mode passes (ancestor walk finds project root tsconfig.json), rest fail
     expect(failed.length).toBe(rules.length - 1);
   });
 
-  it('routes rules to the correct verifiers', () => {
+  it('routes rules to the correct verifiers', async () => {
     const ruleSet = buildRuleSet(rules);
-    const results = verifyOutput(ruleSet, failingDir);
+    const results = await verifyOutput(ruleSet, failingDir);
 
     const astResults = results.filter((r) => r.rule.verifier === 'ast');
     const fsResults = results.filter((r) => r.rule.verifier === 'filesystem');
@@ -108,9 +108,9 @@ describe('Verifier orchestrator: failing fixtures', () => {
     expect(regexResults).toHaveLength(1);
   });
 
-  it('each result contains evidence of failures', () => {
+  it('each result contains evidence of failures', async () => {
     const ruleSet = buildRuleSet(rules);
-    const results = verifyOutput(ruleSet, failingDir);
+    const results = await verifyOutput(ruleSet, failingDir);
 
     for (const r of results) {
       if (!r.passed) {
@@ -123,18 +123,18 @@ describe('Verifier orchestrator: failing fixtures', () => {
 // -- Edge case: empty rule set --
 
 describe('Verifier orchestrator: edge cases', () => {
-  it('returns empty results for empty rule set', () => {
+  it('returns empty results for empty rule set', async () => {
     const ruleSet = buildRuleSet([]);
-    const results = verifyOutput(ruleSet, passingDir);
+    const results = await verifyOutput(ruleSet, passingDir);
     expect(results).toHaveLength(0);
   });
 
-  it('handles unknown verifier type gracefully', () => {
+  it('handles unknown verifier type gracefully', async () => {
     const rule = makeRule('unknown-rule', 'naming', 'ast', 'unknown-pattern-type', '*', true);
     // Override verifier to something unknown to test fallback
     (rule as { verifier: string }).verifier = 'magic';
     const ruleSet = buildRuleSet([rule]);
-    const results = verifyOutput(ruleSet, passingDir);
+    const results = await verifyOutput(ruleSet, passingDir);
     expect(results).toHaveLength(1);
     // Unknown verifier returns a passing result (no check to run)
     expect(results[0]!.passed).toBe(true);

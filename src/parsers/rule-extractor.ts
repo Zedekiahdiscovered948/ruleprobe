@@ -11,9 +11,10 @@ import type { Rule, MarkdownSection } from '../types.js';
 import { RULE_MATCHERS } from './rule-patterns.js';
 import { EXTENDED_RULE_MATCHERS } from './rule-patterns-extended.js';
 import { PROJECT_RULE_MATCHERS } from './rule-patterns-project.js';
+import { ADVANCED_RULE_MATCHERS } from './rule-patterns-advanced.js';
 
-/** Combined matcher list: base matchers checked first, then extended, then project. */
-const ALL_MATCHERS = [...RULE_MATCHERS, ...EXTENDED_RULE_MATCHERS, ...PROJECT_RULE_MATCHERS];
+/** Combined matcher list: base matchers checked first, then extended, then project, then advanced. */
+const ALL_MATCHERS = [...RULE_MATCHERS, ...EXTENDED_RULE_MATCHERS, ...PROJECT_RULE_MATCHERS, ...ADVANCED_RULE_MATCHERS];
 
 /** Counter for generating unique rule IDs across extraction runs. */
 let ruleCounter = 0;
@@ -104,6 +105,20 @@ function isInstructionCandidate(line: string): boolean {
     /\bswallow(?:ed)?\s+(?:error|exception)/i,
     /\bsilent\s+(?:failure|catch)\b/i,
     /\bwildcard\s+imports?\b/i,
+    /\bprefer\s+const\b/i,
+    /\bconst\s+over\s+let\b/i,
+    /\bimmutable\s+by\s+default\b/i,
+    /\bno\s+var\b/i,
+    /\bwildcard\s+(?:re-?)?exports?\b/i,
+    /\bexport\s*\*\b/i,
+    /\bTODO\b.*\bnot\s+allowed\b/i,
+    /\bno\s+TODO\b/i,
+    /\bsemicolon/i,
+    /\bimplicit\s+any\b/i,
+    /\bunused\s+exports?\b/i,
+    /\bunresolved\s+imports?\b/i,
+    /\bpython\b.*\bsnake/i,
+    /\bgo\b.*\bnaming/i,
   ];
 
   return instructionPatterns.some((p) => p.test(line));

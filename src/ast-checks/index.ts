@@ -21,3 +21,7 @@ export { checkMaxParams } from './max-params.js';
 export { checkNoNamespaceImports } from './namespace-imports.js';
 export { checkNoBarrelFiles } from './barrel-files.js';
 export { checkNoSetTimeoutInTests } from './set-timeout-in-tests.js';
+export { checkImplicitAny, checkUnusedExports, checkUnresolvedImports } from './type-aware.js';
+export { checkNoVar } from './no-var.js';
+export { checkPreferConst } from './prefer-const.js';
+export { checkNoWildcardExports } from './no-wildcard-exports.js';

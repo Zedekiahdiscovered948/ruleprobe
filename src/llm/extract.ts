@@ -17,7 +17,7 @@ const VALID_CATEGORIES: ReadonlySet<string> = new Set<RuleCategory>([
 
 /** Valid verifier types. */
 const VALID_VERIFIERS: ReadonlySet<string> = new Set<VerifierType>([
-  'ast', 'regex', 'filesystem',
+  'ast', 'regex', 'filesystem', 'treesitter',
 ]);
 
 /** Prompt parts returned by buildExtractionPrompt. */

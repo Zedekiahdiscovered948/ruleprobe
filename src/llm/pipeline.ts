@@ -25,9 +25,10 @@ const KNOWN_PATTERN_TYPES: string[] = [
   'throw-error-only', 'no-console-extended', 'no-nested-ternary',
   'no-magic-numbers', 'no-else-after-return', 'max-function-length',
   'max-params', 'no-namespace-imports', 'no-barrel-files', 'no-settimeout-in-tests',
+  'no-var', 'prefer-const', 'no-wildcard-exports',
   // Regex checks
   'line-length', 'no-ts-directives', 'no-test-only', 'no-test-skip',
-  'quote-style', 'banned-import',
+  'quote-style', 'banned-import', 'no-todo-comments', 'consistent-semicolons',
   // Filesystem checks
   'kebab-case', 'test-files-exist', 'max-file-length', 'test-file-naming',
   'strict-mode', 'file-exists', 'formatter-config', 'pinned-dependencies',

@@ -59,6 +59,14 @@ export type {
 } from './llm/index.js';
 export type { OpenAiProviderConfig } from './llm/index.js';
 
+// Agent invocation exports
+export { buildAgentConfig } from './runner/agent-configs.js';
+export { invokeAgent, isAgentSdkAvailable, hasAgentOutput } from './runner/agent-invoker.js';
+export { watchForCompletion, countCodeFiles } from './runner/watch-mode.js';
+export type { AgentInvocationConfig, RunOptions } from './runner/agent-configs.js';
+export type { InvocationResult } from './runner/agent-invoker.js';
+export type { WatchOptions, WatchResult } from './runner/watch-mode.js';
+
 /**
  * Extract rules from raw markdown content.
  *

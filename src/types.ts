@@ -21,7 +21,7 @@ export type RuleCategory =
   | 'dependency';
 
 /** Which verification engine handles a given rule. */
-export type VerifierType = 'ast' | 'regex' | 'filesystem';
+export type VerifierType = 'ast' | 'regex' | 'filesystem' | 'treesitter';
 
 /** Instruction file format detected from the file path. */
 export type InstructionFileType =
@@ -65,7 +65,9 @@ export interface Rule {
   /** Confidence level of the extraction (high = exact keyword match). */
   confidence?: 'high' | 'medium' | 'low';
   /** How this rule was extracted. */
-  extractionMethod?: 'static' | 'llm' | 'custom';
+  extractionMethod?: 'static' | 'llm' | 'rubric' | 'custom';
+  /** Weight within a rubric (0-1). Only set for rubric-decomposed rules. */
+  rubricWeight?: number;
 }
 
 /** A complete set of rules extracted from a single instruction file. */

@@ -12,6 +12,7 @@ import { handleParse } from './commands/parse.js';
 import { handleVerify } from './commands/verify.js';
 import { handleCompare } from './commands/compare.js';
 import { handleTasks, handleTask } from './commands/tasks.js';
+import { handleRun } from './commands/run.js';
 
 const program = new Command();
 
@@ -57,6 +58,8 @@ program
   .option('--allow-symlinks', 'follow symlinks outside the working directory', false)
   .option('--config <path>', 'path to ruleprobe config file')
   .option('--llm-extract', 'use LLM to extract rules from unparseable lines', false)
+  .option('--rubric-decompose', 'decompose subjective rules into measurable rubrics via LLM', false)
+  .option('--project <tsconfig>', 'tsconfig.json path for type-aware checks')
   .action(
     async (
       file: string,
@@ -71,6 +74,8 @@ program
         allowSymlinks: boolean;
         config?: string;
         llmExtract: boolean;
+        rubricDecompose: boolean;
+        project?: string;
       },
     ) => {
       await handleVerify(file, outputDir, opts, exitWithError);
@@ -120,6 +125,47 @@ program
       opts: { agents?: string; format: string; output?: string; allowSymlinks: boolean; config?: string },
     ) => {
       await handleCompare(file, dirs, opts, exitWithError);
+    },
+  );
+
+// ── run ──
+
+program
+  .command('run')
+  .description(
+    'Invoke an AI agent on a task template, then verify its output',
+  )
+  .argument('<instruction-file>', 'path to instruction file')
+  .option('--task <template-id>', 'task template to give the agent', 'rest-endpoint')
+  .option('--agent <name>', 'agent identifier', 'claude-code')
+  .option('--model <name>', 'model to use for the agent', 'sonnet')
+  .option('--format <format>', 'report format (text|json|markdown|rdjson)', 'text')
+  .option('--output-dir <path>', 'directory to persist agent output')
+  .option('--watch <dir>', 'watch a directory for agent output instead of invoking')
+  .option('--timeout <seconds>', 'watch mode timeout in seconds', '300')
+  .option('--allow-symlinks', 'follow symlinks outside the working directory', false)
+  .option('--config <path>', 'path to ruleprobe config file')
+  .option('--project <tsconfig>', 'tsconfig.json path for type-aware checks')
+  .action(
+    async (
+      file: string,
+      opts: {
+        task: string;
+        agent: string;
+        model: string;
+        format: string;
+        outputDir?: string;
+        watch?: string;
+        timeout: string;
+        allowSymlinks: boolean;
+        config?: string;
+        project?: string;
+      },
+    ) => {
+      await handleRun(file, {
+        ...opts,
+        timeout: parseInt(opts.timeout, 10),
+      }, exitWithError);
     },
   );
 

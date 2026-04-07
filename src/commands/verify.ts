@@ -28,6 +28,8 @@ export interface VerifyOpts {
   allowSymlinks: boolean;
   config?: string;
   llmExtract?: boolean;
+  rubricDecompose?: boolean;
+  project?: string;
 }
 
 /**
@@ -110,7 +112,21 @@ export async function handleVerify(
     }
   }
 
-  let results = verifyOutput(effectiveRuleSet, outDir, { allowSymlinks: opts.allowSymlinks });
+  if (opts.rubricDecompose) {
+    try {
+      const { decomposeRubrics } = await import('../llm/index.js');
+      const { OpenAiRubricDecomposer } = await import('../llm/openai-rubric-decomposer.js');
+      const decomposer = new OpenAiRubricDecomposer();
+      effectiveRuleSet = await decomposeRubrics(effectiveRuleSet, { decomposer });
+    } catch (err) {
+      exitWithError(`Rubric decomposition failed: ${(err as Error).message}`);
+    }
+  }
+
+  let results = await verifyOutput(effectiveRuleSet, outDir, {
+    allowSymlinks: opts.allowSymlinks,
+    projectPath: opts.project,
+  });
 
   if (opts.severity !== 'all') {
     results = results.filter(

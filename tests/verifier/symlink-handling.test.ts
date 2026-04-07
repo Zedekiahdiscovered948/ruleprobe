@@ -62,11 +62,11 @@ describe('symlink handling in verifyOutput', () => {
     rmSync(outsideDir, { recursive: true, force: true });
   });
 
-  it('skips symlinked files when allowSymlinks is false', () => {
+  it('skips symlinked files when allowSymlinks is false', async () => {
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const ruleSet = makeKebabCaseRuleSet();
-    const results = verifyOutput(ruleSet, projectDir, { allowSymlinks: false });
+    const results = await verifyOutput(ruleSet, projectDir, { allowSymlinks: false });
 
     // The symlinked BadName.ts should have been skipped,
     // so the only file checked is good-file.ts (which passes)
@@ -81,9 +81,9 @@ describe('symlink handling in verifyOutput', () => {
     stderrSpy.mockRestore();
   });
 
-  it('follows symlinked files when allowSymlinks is true', () => {
+  it('follows symlinked files when allowSymlinks is true', async () => {
     const ruleSet = makeKebabCaseRuleSet();
-    const results = verifyOutput(ruleSet, projectDir, { allowSymlinks: true });
+    const results = await verifyOutput(ruleSet, projectDir, { allowSymlinks: true });
 
     // The symlinked BadName.ts should now be included and fail kebab-case
     expect(results).toHaveLength(1);
@@ -92,11 +92,11 @@ describe('symlink handling in verifyOutput', () => {
     expect(results[0]!.evidence[0]!.found).toBe('BadName.ts');
   });
 
-  it('defaults to skipping symlinks when no options provided', () => {
+  it('defaults to skipping symlinks when no options provided', async () => {
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     const ruleSet = makeKebabCaseRuleSet();
-    const results = verifyOutput(ruleSet, projectDir);
+    const results = await verifyOutput(ruleSet, projectDir);
 
     // Default behavior: symlinks skipped, only real files checked
     expect(results).toHaveLength(1);
