@@ -4,7 +4,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { basename, relative, extname } from 'node:path';
+import { basename, dirname, relative, extname, sep } from 'node:path';
 import type { Evidence } from '../types.js';
 
 const KEBAB_CASE_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
@@ -46,6 +46,62 @@ export function checkKebabCaseFileNames(
         expected: 'kebab-case file name',
         context: '',
       });
+    }
+  }
+
+  return evidence;
+}
+
+/**
+ * Directories to skip when checking directory naming conventions.
+ * Includes dotfiles, build output, and dependency directories.
+ */
+const SKIP_DIRS = new Set([
+  'node_modules', '.git', '.github', '.vscode', '.idea',
+  'dist', 'build', 'coverage', '__pycache__', '.next',
+  '.cache', '.turbo', '.svelte-kit',
+]);
+
+/**
+ * Check that directory names follow the kebab-case convention.
+ *
+ * Extracts unique directory names from the file list and checks
+ * each one. Skips hidden directories (starting with .) and
+ * common tooling/build directories.
+ */
+export function checkKebabCaseDirectories(
+  files: string[],
+  outputDir: string,
+): Evidence[] {
+  const evidence: Evidence[] = [];
+  const checked = new Set<string>();
+
+  for (const filePath of files) {
+    const rel = relative(outputDir, filePath);
+    const parts = rel.split(sep).filter(Boolean);
+
+    // Check every directory segment except the file name itself
+    for (let i = 0; i < parts.length - 1; i++) {
+      const dirName = parts[i];
+      if (!dirName) continue;
+      const dirPath = parts.slice(0, i + 1).join('/');
+
+      if (checked.has(dirPath)) continue;
+      checked.add(dirPath);
+
+      // Skip hidden dirs and known exclusions
+      if (dirName.startsWith('.')) continue;
+      if (SKIP_DIRS.has(dirName)) continue;
+
+      if (!KEBAB_CASE_PATTERN.test(dirName)) {
+        evidence.push({
+          file: dirPath,
+          line: null,
+          found: dirName,
+          expected: 'kebab-case directory name',
+          context: '',
+        });
+      }
     }
   }
 

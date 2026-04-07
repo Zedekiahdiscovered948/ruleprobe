@@ -149,6 +149,43 @@ export const ADVANCED_RULE_MATCHERS: RuleMatcher[] = [
     },
   },
 
+  {
+    id: 'style-concise-conditionals',
+    patterns: [
+      /\bavoid\b.*\b(?:unnecessary|unneeded)\s+(?:curly\s+)?braces?\b/i,
+      /\b(?:unnecessary|unneeded)\s+(?:curly\s+)?braces?\b.*\bavoid\b/i,
+      /\bconcise\s+(?:syntax|conditional|style)\b.*\b(?:if|conditional|brace)/i,
+      /\bno\s+(?:curly\s+)?braces?\b.*\bsingle\b.*\bstatement/i,
+      /\bsingle[\s-]line\b.*\bno\s+(?:curly\s+)?braces?\b/i,
+    ],
+    category: 'code-style',
+    verifier: 'ast',
+    description: 'Avoid unnecessary braces around single-statement bodies in conditionals',
+    severity: 'warning',
+    buildPattern: () => ({
+      type: 'concise-conditionals', target: '*.ts', expected: false, scope: 'file',
+    }),
+  },
+
+  // Filesystem checks
+  {
+    id: 'naming-kebab-case-directories',
+    patterns: [
+      /\bkebab[\s-]*case\b.*\b(?:director(?:y|ies)|folder)/i,
+      /\b(?:director(?:y|ies)|folder)\b.*\bkebab[\s-]*case\b/i,
+      /\blowercase\s+with\s+dashes?\b.*\b(?:director(?:y|ies)|folder)/i,
+      /\b(?:director(?:y|ies)|folder)\b.*\blowercase\s+with\s+dashes?\b/i,
+      /\b(?:director(?:y|ies)|folder)\s+names?:?\s*kebab/i,
+    ],
+    category: 'naming',
+    verifier: 'filesystem',
+    description: 'Directory names must use kebab-case (lowercase with dashes)',
+    severity: 'error',
+    buildPattern: () => ({
+      type: 'kebab-case-directories', target: 'directories', expected: 'kebab-case', scope: 'project',
+    }),
+  },
+
   // Additional regex checks
   {
     id: 'forbidden-no-todo-comments',

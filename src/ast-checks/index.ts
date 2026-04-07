@@ -25,3 +25,4 @@ export { checkImplicitAny, checkUnusedExports, checkUnresolvedImports } from './
 export { checkNoVar } from './no-var.js';
 export { checkPreferConst } from './prefer-const.js';
 export { checkNoWildcardExports } from './no-wildcard-exports.js';
+export { checkConciseConditionals } from './concise-conditionals.js';

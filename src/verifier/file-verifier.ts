@@ -10,6 +10,7 @@ import { walkDirectorySafe } from '../utils/safe-path.js';
 import {
   filterSourceFiles,
   checkKebabCaseFileNames,
+  checkKebabCaseDirectories,
   checkTestFilesExist,
   checkMaxFileLength,
   checkTestFileNaming,
@@ -58,6 +59,9 @@ export function verifyFileSystemRule(
   switch (patternType) {
     case 'kebab-case':
       evidence = checkKebabCaseFileNames(files, outputDir);
+      break;
+    case 'kebab-case-directories':
+      evidence = checkKebabCaseDirectories(files, outputDir);
       break;
     case 'test-files-exist':
       evidence = checkTestFilesExist(files, outputDir);

@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- 2 new evidence-backed matchers (53 total): `naming-kebab-case-directories` and `style-concise-conditionals`
+- Both matchers validated against 579 real-world instruction files scraped from GitHub (5+ repo threshold)
+- AST check: `concise-conditionals` flags unnecessary braces around single-statement if/else/for/while bodies
+- Filesystem check: `kebab-case-directories` validates directory naming conventions
 - 23 new rule matchers, bringing total from 15 to 38 across 9 categories
 - 4 new categories: error-handling, type-safety, code-style, dependency
 - AST checks: empty catch blocks, enum usage, type assertions, non-null assertions, throw non-Error, console.warn/error, nested ternaries, magic numbers, else-after-return, max function length, max params, namespace imports, barrel files, setTimeout in tests

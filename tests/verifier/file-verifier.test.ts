@@ -160,3 +160,69 @@ describe('File verifier: strict mode', () => {
     }
   });
 });
+
+describe('File verifier: kebab-case directories', () => {
+  it('passes when all directories use kebab-case', () => {
+    const rule = makeRule('kebab-case-directories');
+    const isolated = mkdtempSync(join(tmpdir(), 'ruleprobe-test-'));
+    try {
+      mkdirSync(join(isolated, 'src', 'auth-wizard'), { recursive: true });
+      mkdirSync(join(isolated, 'src', 'user-profile'), { recursive: true });
+      writeFileSync(join(isolated, 'src', 'auth-wizard', 'index.ts'), '');
+      writeFileSync(join(isolated, 'src', 'user-profile', 'helpers.ts'), '');
+      const files = collectFiles(isolated);
+      const result = verifyFileSystemRule(rule, isolated, files);
+      expect(result.passed).toBe(true);
+      expect(result.evidence).toHaveLength(0);
+    } finally {
+      rmSync(isolated, { recursive: true, force: true });
+    }
+  });
+
+  it('detects camelCase directory names', () => {
+    const rule = makeRule('kebab-case-directories');
+    const isolated = mkdtempSync(join(tmpdir(), 'ruleprobe-test-'));
+    try {
+      mkdirSync(join(isolated, 'src', 'authWizard'), { recursive: true });
+      writeFileSync(join(isolated, 'src', 'authWizard', 'index.ts'), '');
+      const files = collectFiles(isolated);
+      const result = verifyFileSystemRule(rule, isolated, files);
+      expect(result.passed).toBe(false);
+      expect(result.evidence.length).toBeGreaterThanOrEqual(1);
+      expect(result.evidence.some(e => e.found === 'authWizard')).toBe(true);
+    } finally {
+      rmSync(isolated, { recursive: true, force: true });
+    }
+  });
+
+  it('detects PascalCase directory names', () => {
+    const rule = makeRule('kebab-case-directories');
+    const isolated = mkdtempSync(join(tmpdir(), 'ruleprobe-test-'));
+    try {
+      mkdirSync(join(isolated, 'components', 'UserProfile'), { recursive: true });
+      writeFileSync(join(isolated, 'components', 'UserProfile', 'view.ts'), '');
+      const files = collectFiles(isolated);
+      const result = verifyFileSystemRule(rule, isolated, files);
+      expect(result.passed).toBe(false);
+      expect(result.evidence.some(e => e.found === 'UserProfile')).toBe(true);
+    } finally {
+      rmSync(isolated, { recursive: true, force: true });
+    }
+  });
+
+  it('skips hidden directories and node_modules', () => {
+    const rule = makeRule('kebab-case-directories');
+    const isolated = mkdtempSync(join(tmpdir(), 'ruleprobe-test-'));
+    try {
+      // These should not be checked
+      mkdirSync(join(isolated, '.github'), { recursive: true });
+      mkdirSync(join(isolated, 'src'), { recursive: true });
+      writeFileSync(join(isolated, 'src', 'index.ts'), '');
+      const files = collectFiles(isolated);
+      const result = verifyFileSystemRule(rule, isolated, files);
+      expect(result.passed).toBe(true);
+    } finally {
+      rmSync(isolated, { recursive: true, force: true });
+    }
+  });
+});

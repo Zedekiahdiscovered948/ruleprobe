@@ -10,6 +10,9 @@ coverage/
 # Scripts (local utilities, not shipped)
 scripts/
 
+# Scraped instruction files (local analysis data, not shipped)
+scraped-instructions/
+
 # Private project docs (keep local only)
 .github/copilot-instructions.md
 docs/ruleprobe-build-guide.md

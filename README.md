@@ -313,7 +313,7 @@ The parser reads your instruction file and identifies lines that map to determin
 
 ## Supported Rule Types
 
-51 built-in matchers across 9 categories:
+53 built-in matchers across 9 categories:
 
 | Category | Count | Verifier(s) |
 |----------|------:|-------------|
@@ -341,7 +341,7 @@ What v0.1.0 doesn't do, stated plainly.
 - **Subjective rules stay subjective.** "Write clean code" has no deterministic check. `--rubric-decompose` uses an LLM to break subjective instructions into weighted concrete checks (max function length, no magic numbers, etc.), tagged with `extractionMethod: 'rubric'` and `confidence: 'low'`. This is a proxy, not a direct evaluation. Lines with no measurable proxy stay in the unparseable array.
 - **Agent invocation covers Claude SDK and watch mode only.** The `run` command invokes agents via the Claude Agent SDK or watches a directory for output. Copilot, Cursor, and other agent SDKs are not integrated; use `--watch` mode for those.
 - **Type-aware checks require --project.** Three checks (implicit any, unused exports, unresolved imports) need the TypeChecker, which requires a `tsconfig.json`. Without `--project`, ts-morph parses files in isolation and these checks are skipped. An async-return-check (flagging functions that return Promise without the `async` keyword) was considered but not implemented; the three delivered checks cover the higher-value cross-file analysis.
-- **51 matchers, not infinite.** The parser skips lines it can't confidently map to a check. Use `--show-unparseable` to see what was missed, and `--llm-extract` or `--rubric-decompose` to handle the remainder.
+- **53 matchers, not infinite.** The parser skips lines it can't confidently map to a check. Use `--show-unparseable` to see what was missed, and `--llm-extract` or `--rubric-decompose` to handle the remainder.
 
 ## Case Study
 

@@ -1,6 +1,6 @@
 # Built-in Matchers
 
-RuleProbe ships 51 matchers across 9 categories. Each matcher maps a natural-language instruction to a deterministic check.
+RuleProbe ships 53 matchers across 9 categories. Each matcher maps a natural-language instruction to a deterministic check.
 
 The parser is conservative: if it can't confidently map an instruction to a check, it skips it and reports the line as unparseable. Use `--show-unparseable` to see skipped lines, and `--llm-extract` or `--rubric-decompose` to handle the remainder.
 
@@ -22,6 +22,7 @@ The parser is conservative: if it can't confidently map an instruction to a chec
 | naming | "camelCase" (general) | Variable and function names in AST | AST |
 | naming | "PascalCase for types" | Interface and type alias names | AST |
 | naming | "kebab-case file names" | File names on disk | Filesystem |
+| naming | "kebab-case directories" | Directory names on disk | Filesystem |
 | naming | "Python snake_case functions" | Python function names via tree-sitter | Tree-sitter |
 | naming | "Python PascalCase classes" | Python class names via tree-sitter | Tree-sitter |
 | naming | "Go naming conventions" | Exported PascalCase, unexported camelCase | Tree-sitter |
@@ -66,6 +67,7 @@ The parser is conservative: if it can't confidently map an instruction to a chec
 | code-style | "single/double quote style" | Quote consistency in imports | Regex |
 | code-style | "prefer const" | `let` that is never reassigned | AST |
 | code-style | "consistent semicolons" | Missing or unexpected semicolons | Regex |
+| code-style | "concise conditionals" | Unnecessary braces around single-statement bodies | AST |
 | code-style | "Python max function length" | Python function body line count | Tree-sitter |
 | code-style | "Go max function length" | Go function body line count | Tree-sitter |
 | dependency | "pin dependency versions" | Exact version strings in package.json | Filesystem |

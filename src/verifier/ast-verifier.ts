@@ -38,6 +38,7 @@ import {
   checkNoVar,
   checkPreferConst,
   checkNoWildcardExports,
+  checkConciseConditionals,
 } from '../ast-checks/index.js';
 
 /**
@@ -153,6 +154,8 @@ function runAstCheck(rule: Rule, filePath: string, sourceFile: SourceFile): Evid
       return checkPreferConst(sourceFile, filePath);
     case 'no-wildcard-exports':
       return checkNoWildcardExports(sourceFile, filePath);
+    case 'concise-conditionals':
+      return checkConciseConditionals(sourceFile, filePath);
     default:
       return [];
   }

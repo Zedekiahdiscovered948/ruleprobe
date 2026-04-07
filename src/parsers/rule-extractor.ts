@@ -119,6 +119,11 @@ function isInstructionCandidate(line: string): boolean {
     /\bunresolved\s+imports?\b/i,
     /\bpython\b.*\bsnake/i,
     /\bgo\b.*\bnaming/i,
+    /\bkebab[\s-]*case\b.*\b(?:director|folder)/i,
+    /\blowercase\s+with\s+dashes?\b.*\b(?:director|folder)/i,
+    /\bconcise\s+(?:syntax|conditional)/i,
+    /\bavoid\b.*\bcurly\s+braces?\b/i,
+    /\bunnecessary\s+(?:curly\s+)?braces?/i,
   ];
 
   return instructionPatterns.some((p) => p.test(line));

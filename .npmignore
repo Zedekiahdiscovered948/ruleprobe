@@ -2,6 +2,7 @@
 src/
 tests/
 scripts/
+scraped-instructions/
 
 # Development files
 .vscode/
