@@ -66,6 +66,7 @@ function isInstructionCandidate(line: string): boolean {
     /\brelative\s+import/i,
     /\bpath\s+alias/i,
     /\bmax(?:imum)?\s+(?:line|file)\b/i,
+    /\b(?:line|file)\s+length\b/i,
     /\bnamed\s+export/i,
   ];
 

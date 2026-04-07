@@ -210,6 +210,13 @@ describe('extractRules: max line length', () => {
     expect(rule).toBeDefined();
     expect(rule!.pattern.expected).toBe('100');
   });
+
+  it('extracts from "Line length: 100" without max/maximum keyword', () => {
+    const { rules } = extract('# Style\n\n- **Line length:** 100 characters');
+    const rule = findRule(rules, 'structure-max-line-length');
+    expect(rule).toBeDefined();
+    expect(rule!.pattern.expected).toBe('100');
+  });
 });
 
 describe('extractRules: test file requirements', () => {
