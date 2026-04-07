@@ -33,50 +33,83 @@ Or run it directly:
 npx ruleprobe --help
 ```
 
-**Parse an instruction file** to see what rules RuleProbe can extract:
+> **Note:** The examples below reflect the current development HEAD (53 matchers, 9 categories). The published npm v0.1.0 shipped with 15 matchers. A new release will follow.
+
+**Parse an instruction file** to see what rules RuleProbe can extract. This is real output from parsing the repo's own instruction file:
 
 ```bash
-ruleprobe parse CLAUDE.md
+ruleprobe parse .github/copilot-instructions.md
 ```
 
 ```
-Extracted 14 rules:
+Extracted 16 rules:
 
-  forbidden-no-any-type-1
+  error-no-empty-catch-1
+    Category: error-handling
+    Verifier: ast
+    Pattern:  no-empty-catch (*.ts)
+    Source:    "Structured logging and observable failure modes. Errors must be
+               actionable. No silent failures. No swallowed exceptions."
+
+  forbidden-no-any-type-2
     Category: forbidden-pattern
     Verifier: ast
     Pattern:  no-any (*.ts)
     Source:    "- TypeScript strict mode, no any types"
 
-  naming-kebab-case-files-4
+  naming-kebab-case-files-5
     Category: naming
     Verifier: filesystem
-    Pattern:  kebab-case (*.ts)
-    Source:    "- File names: kebab-case"
+    Pattern:  kebab-case (filenames)
+    Source:    "- File names: kebab-case (e.g., rule-extractor.ts, ast-verifier.ts)"
+
+  structure-jsdoc-required-16
+    Category: structure
+    Verifier: ast
+    Pattern:  jsdoc-required (*.ts)
+    Source:    "- Every public function has a JSDoc comment describing its contract"
   ...
 ```
 
-**Verify agent output** against those rules:
+**Verify agent output** against those rules. This is ruleprobe verifying its own source code:
 
 ```bash
-ruleprobe verify CLAUDE.md ./agent-output --format text
+ruleprobe verify .github/copilot-instructions.md ./src --format text
 ```
 
 ```
 RuleProbe Adherence Report
 Agent: unknown | Model: unknown | Task: manual
 
-Rules: 14 total | 11 passed | 3 failed | Score: 79%
+Rules: 16 total | 12 passed | 4 failed | Score: 75%
 
-PASS  naming/naming-camelcase-variables-5
-PASS  naming/naming-pascalcase-types-7
-FAIL  forbidden-pattern/forbidden-no-any-type-1
-      src/handler.ts:12 - found: req: any
-      src/handler.ts:24 - found: data: any
-FAIL  forbidden-pattern/forbidden-no-console-log-10
-      src/handler.ts:18 - found: console.log("handling request")
-FAIL  test-requirement/test-files-exist-11
-      src/handler.ts - found: no test file found
+FAIL  error-handling/error-no-empty-catch-1
+      commands/run.ts:148 - found: empty catch block
+      utils/safe-path.ts:103 - found: empty catch block
+      verifier/ast-verifier.ts:248 - found: empty catch block
+PASS  forbidden-pattern/forbidden-no-any-type-2
+PASS  structure/structure-strict-mode-3
+PASS  structure/structure-named-exports-only-4
+PASS  naming/naming-kebab-case-files-5
+FAIL  naming/naming-camelcase-variables-6
+      verifier/treesitter-loader.ts:75 - found: ParserCtor
+      verifier/treesitter-loader.ts:76 - found: LanguageRef
+PASS  naming/naming-pascalcase-types-8
+PASS  test-requirement/test-files-exist-9
+FAIL  structure/structure-no-barrel-files-11
+      ast-checks/index.ts:5 - found: barrel file with 24 re-exports
+      llm/index.ts:7 - found: barrel file with 9 re-exports
+PASS  import-pattern/import-no-path-aliases-12
+PASS  forbidden-pattern/forbidden-no-console-log-13
+PASS  structure/structure-max-file-length-15
+PASS  structure/structure-jsdoc-required-16
+
+By Category:
+  naming:             2/4 (50%)
+  forbidden-pattern:  3/3 (100%)
+  structure:          4/5 (80%)
+  import-pattern:     1/1 (100%)
+  test-requirement:   2/2 (100%)
 ```
 
 Every failure includes the file, line number, and what was found. No ambiguity.
@@ -160,10 +193,11 @@ ruleprobe verify AGENTS.md ./output --format markdown --severity error
 ruleprobe verify AGENTS.md ./output --format rdjson
 ruleprobe verify AGENTS.md ./output --config ruleprobe.config.ts
 ruleprobe verify AGENTS.md ./output --llm-extract
+ruleprobe verify AGENTS.md ./output --rubric-decompose
 ruleprobe verify AGENTS.md ./output --project tsconfig.json
 ```
 
-`--agent` and `--model` tag the report metadata. `--severity error|warning|all` filters results. `--output` writes to a file instead of stdout. `--format rdjson` produces reviewdog-compatible diagnostics. `--config` loads a specific config file (otherwise auto-discovered). `--llm-extract` runs unparseable lines through an LLM for additional rule extraction. `--project` enables type-aware AST checks (implicit any, unused exports, unresolved imports) using the specified tsconfig.json.
+`--agent` and `--model` tag the report metadata. `--severity error|warning|all` filters results. `--output` writes to a file instead of stdout. `--format rdjson` produces reviewdog-compatible diagnostics. `--config` loads a specific config file (otherwise auto-discovered). `--llm-extract` runs unparseable lines through an LLM for additional rule extraction. `--rubric-decompose` uses an LLM to break subjective instructions into weighted concrete checks (tagged with `extractionMethod: 'rubric'` and `confidence: 'low'`). Both `--llm-extract` and `--rubric-decompose` require `OPENAI_API_KEY`. `--project` enables type-aware AST checks (implicit any, unused exports, unresolved imports) using the specified tsconfig.json.
 
 Exit codes: `0` all rules passed, `1` violations found, `2` execution error.
 
@@ -213,7 +247,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: moonrunnerkc/ruleprobe@v0.1.0
+      - uses: moonrunnerkc/ruleprobe@v1
         with:
           instruction-file: AGENTS.md
           output-dir: src
@@ -223,11 +257,13 @@ jobs:
 
 That's it. No API keys, no LLM calls, deterministic results, runs in seconds.
 
+> **Note:** `@v1` tracks the latest v1.x release. Pin to a specific tag (e.g., `@v1.0.0`) for reproducible builds.
+
 <details>
 <summary>Full options</summary>
 
 ```yaml
-- uses: moonrunnerkc/ruleprobe@v0.1.0
+- uses: moonrunnerkc/ruleprobe@v1
   with:
     instruction-file: AGENTS.md
     output-dir: src
@@ -329,18 +365,35 @@ The parser reads your instruction file and identifies lines that map to determin
 
 Full table with example instructions and check details: [docs/matchers.md](docs/matchers.md)
 
+## Authentication
+
+Most of RuleProbe works offline with no API keys. Two opt-in features use external APIs:
+
+| Feature | Flag(s) | Required env var | When you need it |
+|---------|---------|-----------------|------------------|
+| LLM rule extraction | `--llm-extract` | `OPENAI_API_KEY` | Extracting rules from unparseable instruction lines |
+| Rubric decomposition | `--rubric-decompose` | `OPENAI_API_KEY` | Breaking subjective rules into concrete checks |
+| Agent invocation (SDK mode) | `ruleprobe run --agent claude-code` | `ANTHROPIC_API_KEY` | Invoking Claude to generate code, then verifying |
+| GitHub Action | `uses: moonrunnerkc/ruleprobe@v1` | `GITHUB_TOKEN` | CI, PR comments |
+
+`parse`, `verify`, `compare`, `tasks`, and `task` work entirely offline. No key needed.
+
+## Tree-sitter Support
+
+Python and Go get naming and function-length checks via tree-sitter WASM grammars. The grammar packages (`tree-sitter-python`, `tree-sitter-go`, `web-tree-sitter`) ship as regular dependencies; no extra install step is required. WASM binaries are loaded at runtime from the installed packages. If loading fails (unsupported platform, missing native build), tree-sitter checks are skipped and other verifiers still run.
+
 ## Security
 
-RuleProbe never executes scanned code, never makes network calls, and never modifies files in the scanned directory. User-supplied paths are resolved and bounded to the working directory; symlinks outside the project are skipped unless you pass `--allow-symlinks`. All dependencies are pinned to exact versions. See [SECURITY.md](SECURITY.md) for the full model.
+RuleProbe never executes scanned code, never makes network calls (unless you opt in with `--llm-extract`, `--rubric-decompose`, or `ruleprobe run`), and never modifies files in the scanned directory. User-supplied paths are resolved and bounded to the working directory; symlinks outside the project are skipped unless you pass `--allow-symlinks`. All dependencies are pinned to exact versions. See [SECURITY.md](SECURITY.md) for the full model.
 
 ## Limitations
 
 What v0.1.0 doesn't do, stated plainly.
 
-- **TypeScript gets the deepest coverage.** ts-morph gives full AST analysis for TypeScript and JavaScript: naming, forbidden patterns, structure, imports, type-safety, and code-style checks. Python and Go get naming and function-length checks via tree-sitter WASM grammars. Everything else falls back to regex (line length, comments, semicolons). No Rust, Java, or C# AST support yet.
-- **Subjective rules stay subjective.** "Write clean code" has no deterministic check. `--rubric-decompose` uses an LLM to break subjective instructions into weighted concrete checks (max function length, no magic numbers, etc.), tagged with `extractionMethod: 'rubric'` and `confidence: 'low'`. This is a proxy, not a direct evaluation. Lines with no measurable proxy stay in the unparseable array.
-- **Agent invocation covers Claude SDK and watch mode only.** The `run` command invokes agents via the Claude Agent SDK or watches a directory for output. Copilot, Cursor, and other agent SDKs are not integrated; use `--watch` mode for those.
-- **Type-aware checks require --project.** Three checks (implicit any, unused exports, unresolved imports) need the TypeChecker, which requires a `tsconfig.json`. Without `--project`, ts-morph parses files in isolation and these checks are skipped. An async-return-check (flagging functions that return Promise without the `async` keyword) was considered but not implemented; the three delivered checks cover the higher-value cross-file analysis.
+- **TypeScript gets the deepest coverage.** ts-morph gives full AST analysis for TypeScript and JavaScript: naming, forbidden patterns, structure, imports, type-safety, and code-style checks. Python and Go get naming and function-length checks via tree-sitter WASM grammars (grammar packages ship as regular dependencies; see the Tree-sitter Support section). Everything else falls back to regex (line length, comments, semicolons). No Rust, Java, or C# AST support yet.
+- **Subjective rules stay subjective.** "Write clean code" has no deterministic check. The `--rubric-decompose` flag on the `verify` command uses an LLM to break subjective instructions into weighted concrete checks (max function length, no magic numbers, etc.), tagged with `extractionMethod: 'rubric'` and `confidence: 'low'`. This is a proxy, not a direct evaluation. Lines with no measurable proxy stay in the unparseable array. Requires `OPENAI_API_KEY`.
+- **Agent invocation covers Claude SDK and watch mode only.** The `run` command invokes agents via the Claude Agent SDK (requires `ANTHROPIC_API_KEY`) or watches a directory for output. Copilot, Cursor, and other agent SDKs are not integrated; use `--watch` mode for those.
+- **Type-aware checks require --project.** Three checks (implicit any, unused exports, unresolved imports) need the TypeChecker, which requires a `tsconfig.json`. Without `--project`, ts-morph parses files in isolation and these checks are skipped.
 - **53 matchers, not infinite.** The parser skips lines it can't confidently map to a check. Use `--show-unparseable` to see what was missed, and `--llm-extract` or `--rubric-decompose` to handle the remainder.
 
 ## Case Study
