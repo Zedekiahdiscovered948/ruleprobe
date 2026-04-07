@@ -14,11 +14,19 @@ All notable changes to this project will be documented in this file.
 - Rule confidence scoring (high/medium/low) and extraction method tracking (static/llm/custom)
 - Extended test suite: 66 new tests covering all new matchers and checks
 - Decomposed file-verifier into filesystem-checks and project-checks modules
+- User-defined rules via ruleprobe.config.ts (or .js, .json, .ruleproberc.json)
+- Config supports custom rules, rule overrides, and rule exclusions
+- `defineConfig()` helper for type-safe TypeScript configs
+- `--config` flag on verify and compare commands
+- Auto-discovery of config files in the working directory tree
+- Programmatic API exports: `defineConfig`, `loadConfig`, `applyConfig`
 
 ### Changed
 
 - isInstructionCandidate expanded to recognize 30+ additional instruction patterns
 - matchLine now propagates confidence and extractionMethod fields
+- generateReport now includes all 9 rule categories in byCategory breakdown
+- verify and compare command handlers are now async (required for config loading)
 
 ## [0.1.0] - 2026-04-06
 

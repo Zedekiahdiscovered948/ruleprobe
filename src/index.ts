@@ -25,6 +25,7 @@ import { extractRules as extractRulesFromSections } from './parsers/rule-extract
 import { verifyOutput } from './verifier/index.js';
 import type { VerifyOptions } from './verifier/index.js';
 import { formatReport } from './reporter/index.js';
+import type { RuleProbeConfig, CustomRule, RuleOverride } from './config/types.js';
 
 // Re-export types for consumers
 export type {
@@ -39,12 +40,16 @@ export type {
   InstructionFileType,
   ReportFormat,
   VerifyOptions,
+  RuleProbeConfig,
+  CustomRule,
+  RuleOverride,
 };
 
 // Re-export core functions
 export { parseInstructionFile } from './parsers/index.js';
 export { verifyOutput } from './verifier/index.js';
 export { formatReport } from './reporter/index.js';
+export { defineConfig, loadConfig, applyConfig } from './config/index.js';
 
 /**
  * Extract rules from raw markdown content.
@@ -103,6 +108,10 @@ export function generateReport(
     'structure',
     'test-requirement',
     'import-pattern',
+    'error-handling',
+    'type-safety',
+    'code-style',
+    'dependency',
   ];
   const byCategory = {} as Record<RuleCategory, CategoryScore>;
   for (const cat of allCategories) {

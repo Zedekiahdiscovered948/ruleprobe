@@ -91,6 +91,48 @@ Every failure includes the file, line number, and what was found. No ambiguity.
 
 **GitHub Action.** Ships as a composite action you can drop into any repo. Runs `ruleprobe verify` on every PR, posts results as a comment, and optionally outputs reviewdog rdjson format for inline annotations. No API keys needed beyond `GITHUB_TOKEN`.
 
+## Configuration
+
+RuleProbe auto-discovers a config file in the working directory (or any parent). You can also pass `--config <path>` explicitly. Supported file names, in priority order:
+
+- `ruleprobe.config.ts`
+- `ruleprobe.config.js`
+- `ruleprobe.config.json`
+- `.ruleproberc.json`
+
+A config file lets you add custom rules, override extracted rules, or exclude rules entirely:
+
+```typescript
+// ruleprobe.config.ts
+import { defineConfig } from 'ruleprobe';
+
+export default defineConfig({
+  // Add rules that the parser can't extract from your instruction file
+  rules: [
+    {
+      id: 'custom-no-lodash',
+      category: 'import-pattern',
+      description: 'Ban lodash imports',
+      verifier: 'regex',
+      pattern: { type: 'banned-import', target: '*.ts', expected: 'lodash', scope: 'file' },
+    },
+  ],
+
+  // Change severity or expected values on extracted rules
+  overrides: [
+    { ruleId: 'naming-camelcase', severity: 'warning' },
+    { ruleId: 'structure-max-file-length', expected: '500' },
+  ],
+
+  // Remove rules you don't want checked
+  exclude: ['forbidden-no-console-log'],
+});
+```
+
+`defineConfig()` is a no-op passthrough that provides type checking in TypeScript configs. JSON configs work without it.
+
+Custom rules use the same verifier types (`ast`, `regex`, `filesystem`) and pattern types as extracted rules. Any pattern type listed in the Supported Rule Types table works as a custom rule pattern.
+
 ## CLI Reference
 
 ### `ruleprobe parse <instruction-file>`
@@ -113,9 +155,10 @@ ruleprobe verify CLAUDE.md ./output --format text
 ruleprobe verify AGENTS.md ./output --agent claude --model opus-4 --format json --output report.json
 ruleprobe verify AGENTS.md ./output --format markdown --severity error
 ruleprobe verify AGENTS.md ./output --format rdjson
+ruleprobe verify AGENTS.md ./output --config ruleprobe.config.ts
 ```
 
-`--agent` and `--model` tag the report metadata. `--severity error|warning|all` filters results. `--output` writes to a file instead of stdout. `--format rdjson` produces reviewdog-compatible diagnostics.
+`--agent` and `--model` tag the report metadata. `--severity error|warning|all` filters results. `--output` writes to a file instead of stdout. `--format rdjson` produces reviewdog-compatible diagnostics. `--config` loads a specific config file (otherwise auto-discovered).
 
 Exit codes: `0` all rules passed, `1` violations found, `2` execution error.
 
@@ -205,6 +248,9 @@ Five functions cover the full pipeline:
 | `generateReport(run, ruleSet, results)` | Build an `AdherenceReport` with summary stats |
 | `formatReport(report, format)` | Render as text, JSON, markdown, or rdjson |
 | `extractRules(markdown, fileType)` | Extract rules from raw markdown content |
+| `defineConfig(config)` | Type-safe config helper for ruleprobe.config.ts |
+| `loadConfig(path?, searchDir?)` | Load and validate a config file |
+| `applyConfig(ruleSet, config)` | Merge custom rules, overrides, and exclusions into a RuleSet |
 
 ```typescript
 import { parseInstructionFile, verifyOutput, generateReport, formatReport } from 'ruleprobe';

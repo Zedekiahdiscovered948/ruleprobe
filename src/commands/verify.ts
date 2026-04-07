@@ -14,6 +14,7 @@ import { generateReport } from '../index.js';
 import { formatReport } from '../reporter/index.js';
 import { validateOutputDir, currentTimestamp } from '../runner/index.js';
 import { resolveSafePath } from '../utils/safe-path.js';
+import { loadConfig, applyConfig } from '../config/index.js';
 import type { AgentRun, ReportFormat } from '../types.js';
 
 /** Options accepted by the verify command. */
@@ -25,6 +26,7 @@ export interface VerifyOpts {
   output?: string;
   severity: string;
   allowSymlinks: boolean;
+  config?: string;
 }
 
 /**
@@ -46,12 +48,12 @@ export const EXIT_ERROR = 2;
  * @param opts - Command options
  * @param exitWithError - Error handler that terminates the process
  */
-export function handleVerify(
+export async function handleVerify(
   file: string,
   outputDir: string,
   opts: VerifyOpts,
   exitWithError: (msg: string) => never,
-): void {
+): Promise<void> {
   let filePath: string;
   let outDir: string;
   try {
@@ -86,7 +88,18 @@ export function handleVerify(
   }
 
   const ruleSet = parseInstructionFile(filePath);
-  let results = verifyOutput(ruleSet, outDir, { allowSymlinks: opts.allowSymlinks });
+
+  let effectiveRuleSet = ruleSet;
+  try {
+    const config = await loadConfig(opts.config, outDir);
+    if (config) {
+      effectiveRuleSet = applyConfig(ruleSet, config);
+    }
+  } catch (err) {
+    exitWithError(`Config error: ${(err as Error).message}`);
+  }
+
+  let results = verifyOutput(effectiveRuleSet, outDir, { allowSymlinks: opts.allowSymlinks });
 
   if (opts.severity !== 'all') {
     results = results.filter(

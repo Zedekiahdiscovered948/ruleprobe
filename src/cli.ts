@@ -54,8 +54,9 @@ program
     'all',
   )
   .option('--allow-symlinks', 'follow symlinks outside the working directory', false)
+  .option('--config <path>', 'path to ruleprobe config file')
   .action(
-    (
+    async (
       file: string,
       outputDir: string,
       opts: {
@@ -66,9 +67,10 @@ program
         output?: string;
         severity: string;
         allowSymlinks: boolean;
+        config?: string;
       },
     ) => {
-      handleVerify(file, outputDir, opts, exitWithError);
+      await handleVerify(file, outputDir, opts, exitWithError);
     },
   );
 
@@ -107,13 +109,14 @@ program
   .option('--format <format>', 'report format (text|json|markdown)', 'markdown')
   .option('--output <path>', 'write report to file instead of stdout')
   .option('--allow-symlinks', 'follow symlinks outside the working directory', false)
+  .option('--config <path>', 'path to ruleprobe config file')
   .action(
-    (
+    async (
       file: string,
       dirs: string[],
-      opts: { agents?: string; format: string; output?: string; allowSymlinks: boolean },
+      opts: { agents?: string; format: string; output?: string; allowSymlinks: boolean; config?: string },
     ) => {
-      handleCompare(file, dirs, opts, exitWithError);
+      await handleCompare(file, dirs, opts, exitWithError);
     },
   );
 

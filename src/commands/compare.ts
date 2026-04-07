@@ -14,6 +14,7 @@ import { formatComparisonMarkdown } from '../reporter/markdown.js';
 import { formatTextPlain } from '../reporter/text.js';
 import { validateOutputDir, currentTimestamp } from '../runner/index.js';
 import { resolveSafePath } from '../utils/safe-path.js';
+import { loadConfig, applyConfig } from '../config/index.js';
 import type { AgentRun, AdherenceReport } from '../types.js';
 
 /** Options accepted by the compare command. */
@@ -22,6 +23,7 @@ export interface CompareOpts {
   format: string;
   output?: string;
   allowSymlinks: boolean;
+  config?: string;
 }
 
 /**
@@ -32,12 +34,12 @@ export interface CompareOpts {
  * @param opts - Command options
  * @param exitWithError - Error handler that terminates the process
  */
-export function handleCompare(
+export async function handleCompare(
   file: string,
   dirs: string[],
   opts: CompareOpts,
   exitWithError: (msg: string) => never,
-): void {
+): Promise<void> {
   let filePath: string;
   try {
     filePath = resolveSafePath(file);
@@ -72,6 +74,17 @@ export function handleCompare(
   }
 
   const ruleSet = parseInstructionFile(filePath);
+
+  let effectiveRuleSet = ruleSet;
+  try {
+    const config = await loadConfig(opts.config);
+    if (config) {
+      effectiveRuleSet = applyConfig(ruleSet, config);
+    }
+  } catch (err) {
+    exitWithError(`Config error: ${(err as Error).message}`);
+  }
+
   const reports: AdherenceReport[] = [];
 
   for (let i = 0; i < dirs.length; i++) {
@@ -92,7 +105,7 @@ export function handleCompare(
       );
     }
 
-    const results = verifyOutput(ruleSet, outDir, { allowSymlinks: opts.allowSymlinks });
+    const results = verifyOutput(effectiveRuleSet, outDir, { allowSymlinks: opts.allowSymlinks });
     const run: AgentRun = {
       agent: agentLabels[i]!,
       model: 'unknown',
@@ -102,7 +115,7 @@ export function handleCompare(
       durationSeconds: null,
     };
 
-    reports.push(generateReport(run, ruleSet, results));
+    reports.push(generateReport(run, effectiveRuleSet, results));
   }
 
   let formatted: string;
