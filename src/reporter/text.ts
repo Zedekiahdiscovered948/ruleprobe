@@ -8,7 +8,7 @@
  */
 
 import chalk from 'chalk';
-import type { AdherenceReport, RuleResult, RuleCategory, CategoryScore } from '../types.js';
+import type { AdherenceReport, RuleCategory, CategoryScore } from '../types.js';
 
 /** Category display names in a stable order. */
 const CATEGORY_ORDER: RuleCategory[] = [
@@ -181,7 +181,7 @@ export function formatTextPlain(report: AdherenceReport): string {
 /**
  * Format just the parse output (rules extracted from an instruction file).
  *
- * @param results - Array of RuleResults (used here only for rule metadata)
+ * @param rules - Extracted rules from the instruction file
  * @param unparseable - Lines that could not be extracted
  * @param showUnparseable - Whether to include unparseable lines
  * @returns Formatted text string
