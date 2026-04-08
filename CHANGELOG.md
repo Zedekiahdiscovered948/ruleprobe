@@ -2,40 +2,67 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.0.0] - 2026-04-07
 
-### Added
+14 commits, 100 files changed, +9,017 lines since v0.1.0.
 
-- 2 new evidence-backed matchers (53 total): `naming-kebab-case-directories` and `style-concise-conditionals`
-- Both matchers validated against 579 real-world instruction files scraped from GitHub (5+ repo threshold)
-- AST check: `concise-conditionals` flags unnecessary braces around single-statement if/else/for/while bodies
-- Filesystem check: `kebab-case-directories` validates directory naming conventions
-- 23 new rule matchers, bringing total from 15 to 38 across 9 categories
-- 4 new categories: error-handling, type-safety, code-style, dependency
-- AST checks: empty catch blocks, enum usage, type assertions, non-null assertions, throw non-Error, console.warn/error, nested ternaries, magic numbers, else-after-return, max function length, max params, namespace imports, barrel files, setTimeout in tests
-- Regex checks: @ts-ignore/@ts-nocheck directives, .only in tests, .skip in tests, quote style, banned imports
-- Filesystem checks: README/CHANGELOG existence, formatter config, pinned dependency versions
-- Rule confidence scoring (high/medium/low) and extraction method tracking (static/llm/custom)
-- Extended test suite: 66 new tests covering all new matchers and checks
-- Decomposed file-verifier into filesystem-checks and project-checks modules
-- User-defined rules via ruleprobe.config.ts (or .js, .json, .ruleproberc.json)
-- Config supports custom rules, rule overrides, and rule exclusions
-- `defineConfig()` helper for type-safe TypeScript configs
-- `--config` flag on verify and compare commands
-- Auto-discovery of config files in the working directory tree
-- Programmatic API exports: `defineConfig`, `loadConfig`, `applyConfig`
-- Opt-in LLM-assisted rule extraction via `--llm-extract` flag
-- OpenAI-compatible LLM provider using native fetch (no SDK dependency)
-- LLM provider interface (`LlmProvider`) for pluggable providers
-- LLM-extracted rules labeled with `extractionMethod: 'llm'` and `confidence: 'medium'`
-- Programmatic API exports: `extractWithLlm`, `createOpenAiProvider`
+### Breaking Changes
 
-### Changed
+- `verifyOutput` is now async. Returns `Promise<RuleResult[]>` instead of `RuleResult[]`. Callers must `await` it.
+- `RuleCategory` union expanded from 5 to 9 members: added `error-handling`, `type-safety`, `code-style`, `dependency`. Exhaustive `switch` statements and `Record<RuleCategory, ...>` types need updating.
+- `VerifierType` union expanded: added `treesitter`.
 
-- isInstructionCandidate expanded to recognize 30+ additional instruction patterns
-- matchLine now propagates confidence and extractionMethod fields
-- generateReport now includes all 9 rule categories in byCategory breakdown
-- verify and compare command handlers are now async (required for config loading)
+### New Features
+
+**53 matchers across 9 categories** (was 15 matchers, 5 categories). 19 new AST checks, 7 new regex checks, 5 new filesystem checks, 4 new tree-sitter checks covering error handling, type safety, code style, and dependency verification.
+
+**User-defined rules via `ruleprobe.config.ts`.** Add custom rules, override extracted rule severity or thresholds, exclude rules entirely. Auto-discovered in the working directory or specified with `--config`. `defineConfig()` export provides TypeScript type checking. Supports `.ts`, `.js`, `.json`, and `.ruleproberc.json` formats.
+
+**LLM-assisted extraction (`--llm-extract`).** Sends unparseable instruction lines through an OpenAI-compatible API for a second extraction pass. Extracted rules tagged with `extractionMethod: 'llm'`, `confidence: 'medium'`, severity `warning`. Requires `OPENAI_API_KEY`. Opt-in only; default behavior unchanged.
+
+**Rubric decomposition (`--rubric-decompose`).** Breaks subjective instructions ("write clean code") into weighted concrete checks (max function length, no magic numbers, etc.) via LLM. Tagged with `extractionMethod: 'rubric'`, `confidence: 'low'`. Requires `OPENAI_API_KEY`. Opt-in only.
+
+**Agent invocation (`ruleprobe run`).** Invoke Claude via the Agent SDK, capture output, verify, and report in one step. Also supports `--watch` mode for any agent that writes to a directory. Requires `@anthropic-ai/claude-agent-sdk` and `ANTHROPIC_API_KEY` for SDK mode. Watch mode needs no dependencies.
+
+**Tree-sitter multi-language support.** Python and Go get naming and function-length checks via WASM grammars. Grammar packages (`web-tree-sitter`, `tree-sitter-python`, `tree-sitter-go`) ship as regular dependencies. If loading fails on a platform, tree-sitter checks are skipped and other verifiers still run.
+
+**Type-aware checks (`--project`).** Pass a `tsconfig.json` to enable cross-file type analysis: implicit `any` detection through aliases, unused exports, unresolved imports. Falls back to isolated-file parsing automatically if compilation fails.
+
+### New CLI Flags
+
+- `--llm-extract` on `parse` and `verify`
+- `--rubric-decompose` on `verify`
+- `--config` on `verify`, `compare`, and `run`
+- `--project` on `verify` and `run`
+
+### New Public API Exports
+
+Functions: `defineConfig`, `loadConfig`, `applyConfig`, `extractWithLlm`, `createOpenAiProvider`, `buildAgentConfig`, `invokeAgent`, `isAgentSdkAvailable`, `hasAgentOutput`, `watchForCompletion`, `countCodeFiles`
+
+Types: `VerifyOptions`, `RuleProbeConfig`, `CustomRule`, `RuleOverride`, `LlmProvider`, `LlmRuleCandidate`, `LlmExtractionResult`, `LlmExtractOptions`, `OpenAiProviderConfig`, `AgentInvocationConfig`, `RunOptions`, `InvocationResult`, `WatchOptions`, `WatchResult`
+
+### Resolved Limitations
+
+Every limitation documented in v0.1.0 has been addressed:
+
+- "TypeScript and JavaScript only": Python and Go via tree-sitter.
+- "No subjective evaluation": `--rubric-decompose` decomposes subjective rules into measurable proxies.
+- "No automated agent invocation": `ruleprobe run` with Claude SDK and watch mode.
+- "Conservative extraction (15 matchers)": 53 matchers, plus `--llm-extract` for the remainder.
+- "Type-level checks are limited": `--project` enables TypeChecker-dependent analysis.
+
+### Stats
+
+| Metric | v0.1.0 | v1.0.0 |
+|--------|--------|--------|
+| Source files | 30 | 75 |
+| Source lines | 3,328 | 8,607 |
+| Test files | 13 | 27 |
+| Rule matchers | 15 | 53 |
+| Rule categories | 5 | 9 |
+| Verifier engines | 3 | 4 |
+| CLI commands | 5 | 6 |
+| Public API exports | 15 | 40 |
 
 ## [0.1.0] - 2026-04-06
 
