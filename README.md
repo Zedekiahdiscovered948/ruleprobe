@@ -115,6 +115,8 @@ By Category:
   type-safety:        2/4 (50%)
   code-style:         2/5 (40%)
   dependency:         2/2 (100%)
+
+Summary: 32 checked | 23 passed | 9 failed | 0 skipped
 ```
 
 Every failure includes the file, line number, and what was found. No ambiguity.
@@ -299,7 +301,7 @@ Outputs: `score`, `passed`, `failed`, `total` (available to downstream steps).
 
 ## Programmatic API
 
-Five functions cover the full pipeline:
+Five core functions cover the parse-verify-report pipeline. Config, LLM extraction, and agent invocation are additive:
 
 | Function | Purpose |
 |----------|---------|
@@ -400,6 +402,23 @@ What v0.1.0 doesn't do, stated plainly.
 - **Agent invocation covers Claude SDK and watch mode only.** The `run` command invokes agents via the Claude Agent SDK (requires `ANTHROPIC_API_KEY`) or watches a directory for output. Copilot, Cursor, and other agent SDKs are not integrated; use `--watch` mode for those.
 - **Type-aware checks require --project.** Three checks (implicit any, unused exports, unresolved imports) need the TypeChecker, which requires a `tsconfig.json`. Without `--project`, ts-morph parses files in isolation and these checks are skipped.
 - **53 matchers, not infinite.** The parser skips lines it can't confidently map to a check. Use `--show-unparseable` to see what was missed, and `--llm-extract` or `--rubric-decompose` to handle the remainder.
+
+## Troubleshooting
+
+**`sh: ruleprobe: not found` after global install**
+The npm bin directory may not be in `PATH`. Run `npm bin -g` to find it and add it to your shell profile, or use `npx ruleprobe` instead.
+
+**`Error: OPENAI_API_KEY not set`**
+`--llm-extract` and `--rubric-decompose` require an OpenAI-compatible API key. Export it before running: `export OPENAI_API_KEY=sk-...`. The key is never written to disk or included in reports.
+
+**Tree-sitter checks skipped for Python/Go**
+The WASM grammars load from the installed `tree-sitter-python` and `tree-sitter-go` packages. If those packages are missing (e.g., after a partial install) or the platform doesn't support WASM, tree-sitter checks silently fall back and other verifiers still run. Re-run `npm install` to restore them.
+
+**`ruleprobe verify` exits 2 with "path outside project root"**
+A file or symlink in the output directory resolves outside the project root. Pass `--allow-symlinks` to follow symlinks across boundaries, or move the symlink targets inside the project.
+
+**Fewer rules extracted than expected**
+Run `ruleprobe parse <instruction-file> --show-unparseable` to see which lines were skipped and why. Add `--llm-extract` to attempt extraction on skipped lines.
 
 ## Case Study
 
