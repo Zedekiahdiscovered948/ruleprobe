@@ -370,28 +370,29 @@ Full release notes and migration guide: [docs/release-v3.0.0.md](docs/release-v3
 
 ## Benchmarks
 
-**Corpus analysis: 202 instruction files from 195 repos.** RuleProbe parsed real CLAUDE.md, AGENTS.md, .cursorrules, and GEMINI.md files scraped from public GitHub repos (ClickHouse, Grafana, Microsoft, Deno, PostHog, Expo, and others). 917 rules extracted from 167 substantive files, averaging 5.5 rules per file. The other 35 files were single-line pointers or redirects, which the parser correctly skipped.
+**Corpus analysis: 580 instruction files from 568 repos.** RuleProbe parsed real CLAUDE.md, AGENTS.md, .cursorrules, .windsurfrules, GEMINI.md, and copilot-instructions.md files scraped from public GitHub repos with 10+ stars, including Sentry (43k stars), PingCAP/TiDB (40k), Lerna (36k), Dragonfly (30k), Kubernetes/kops (17k), RabbitMQ (14k), Google APIs (14k), Redpanda (12k), Cloudflare, Grafana, Microsoft, and others. 309 rules extracted from 150 files that contained verifiable instructions. The other 430 files (74%) had zero extractable rules; many were single-line redirects (e.g. Dragonfly's .cursorrules: "READ AGENTS.md"; Umi's .cursorrules: "RULE.md").
 
-The raw parse rate is 13%, which sounds low until you look at what instruction files actually contain. About 87% of the lines in a typical instruction file are markdown headers, code examples, project descriptions, build commands, and contextual prose. The parser isn't failing on those; it's correctly identifying them as not-rules. Nearly half the substantive files (44.9%) had parse rates above 20%, and the bottom of the distribution is dominated by documentation-heavy files from large orgs that embed a few rules in pages of project context.
+The extraction rate is 3.8% (309 rules from 8,222 total instruction lines). That sounds low until you look at what instruction files actually contain. 96% of the lines are markdown headers, code examples, project descriptions, build commands, agent behavior directives, and contextual prose. The parser isn't failing on those; it's correctly identifying them as not-rules. Only 26 files (4.5%) had parse rates above 20%.
+
+Raw data: [scraped-instructions/per-file-results.json](scraped-instructions/per-file-results.json) (580 entries), [scraped-instructions/all-extracted.json](scraped-instructions/all-extracted.json) (309 rules), [scraped-instructions/analysis.json](scraped-instructions/analysis.json) (summary stats).
+
+**E2E verification: excalidraw.** RuleProbe ran the full deterministic + semantic pipeline against excalidraw (~95k stars). The parser found 9 verifiable rules across CLAUDE.md and copilot-instructions.md. Deterministic analysis scored 66.1% compliance. Semantic analysis (structural fingerprinting of 626 source files) produced 9 verdicts, all resolved via fast-path vector similarity with zero LLM calls and zero token cost:
+
+| Rule | Compliance | Method |
+|------|-----------|--------|
+| Prefer functional components | 0.976 | structural-fast-path |
+| PascalCase type naming | 0.976 | structural-fast-path |
+| Async try/catch usage | 0.983 | structural-fast-path |
+| Contextual error logging | 0.979 | structural-fast-path |
+| Yarn as package manager | 0.50 | no matching topic |
+| TypeScript required | 0.50 | no matching topic |
+| Optional chaining preference | 0.50 | no matching topic |
+| camelCase variables | 0.50 | no matching topic |
+| UPPER\_CASE constants | 0.50 | no matching topic |
+
+Rules matching established code pattern topics (component-structure, error-handling) scored 0.97+. Rules about tooling or naming that don't map to structural AST patterns got a neutral 0.50. Privacy test confirmed: all 626 file IDs are opaque sequential integers; no source code, file paths, or variable names in any payload.
 
 Full report: [docs/verification/e2e-verification-report.md](docs/verification/e2e-verification-report.md)
-
-**E2E verification: 5 repos, 52 rules.** RuleProbe ran the full deterministic + semantic pipeline against excalidraw (~95k stars), PostHog (~25k), Codex (~21k), Zed (~57k), and Cline (~23k). Results:
-
-| Repo | Rules | Passed | Compliance |
-|------|------:|-------:|-----------:|
-| excalidraw | 16 | 13 | 81.2% |
-| posthog | 15 | 12 | 80.0% |
-| codex | 9 | 8 | 88.9% |
-| zed | 7 | 7 | 100.0% |
-| cline | 5 | 4 | 80.0% |
-| **Total** | **52** | **44** | **84.6%** |
-
-73% of the rules (38/52) turned out to be non-structural: tooling commands ("use npm run compile not npm run build"), agent behavior directives ("be succinct"), workflow patterns, and framework-specific guidance with no AST representation. This matches the corpus finding that most instruction file content isn't about code patterns.
-
-For the 10 rules the semantic tier could resolve structurally, 60% hit the fast path (structural similarity alone, zero LLM calls). The remaining 40% escalated to LLM judgment and returned nuanced scores: excalidraw's functional component preference scored 0.82, PascalCase type naming 0.85, async try/catch usage 0.85. Total cost across all 5 repos: $0.06.
-
-Per-repo details: [excalidraw](docs/verification/e2e-verification-report.md#2-excalidraw-ruleprobe-analyze---semantic) | [posthog](docs/verification/e2e-verification-report.md#3-posthog-ruleprobe-analyze---semantic) | codex | zed | cline
 
 ## Further Reading
 

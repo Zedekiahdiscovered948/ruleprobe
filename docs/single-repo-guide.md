@@ -1,883 +1,210 @@
-# Single-Repo Consolidation Guide
+## Errors Found (with evidence)
 
-Merge `ruleprobe-semantic` and `ruleprobe-api-service` into the main `ruleprobe` repo. Remove the paid tier, license keys, and API service. Semantic analysis runs locally with the user's own `ANTHROPIC_API_KEY`.
-
-## Current state (3 repos)
-
-| Repo | Visibility | Source files | Source lines | Test files | Test lines |
-|------|-----------|-------------:|------------:|-----------:|-----------:|
-| ruleprobe | public | ~105 | ~16,800 | ~59 | ~9,900 |
-| ruleprobe-semantic | private | 40 | ~3,600 | 18 | ~3,100 |
-| ruleprobe-api-service | private | 11 | ~925 | 9 | ~980 |
-
-**Data flow today:**
-1. CLI runs `local-extractor.ts` (tree-sitter scan, produces `RawExtractionPayload`)
-2. `client.ts` sends payload over HTTP to the API service
-3. API service imports `analyzeSemantic()` from `ruleprobe-semantic`, runs it server-side
-4. API service returns `SemanticVerdict[]` to the CLI
-5. CLI integrates verdicts into `ProjectAnalysis`
-
-**Data flow after consolidation:**
-1. CLI runs `local-extractor.ts` (unchanged)
-2. CLI calls `analyzeSemantic()` directly (no HTTP, no server)
-3. `analyzeSemantic()` uses the user's `ANTHROPIC_API_KEY` for any LLM calls
-4. CLI integrates verdicts into `ProjectAnalysis` (unchanged)
+| Claim in original | Actual (from data) | Source |
+|---|---|---|
+| "202 instruction files from 195 repos" | **580 files from 568 repos** | `per-file-results.json`: 580 entries, 568 unique `repo` values |
+| "13% extraction rate / 87% unenforceable" | **3.8% extraction rate / 96.2% non-rule** | `analysis.json`: 309 extracted / 8222 total lines |
+| "917 rules extracted" | **309 rules extracted** | `all-extracted.json`: 309 entries; `analysis.json` confirms |
+| "7,072 total lines" | **8,222 total lines** | `analysis.json`: `totalInstructionLines: 8222` |
+| "6,155 non-rule lines" | **7,913 unparseable** | `analysis.json`: `totalUnparseable: 7913` |
+| "CLAUDE.md (127), AGENTS.md (73), .cursorrules (1), GEMINI.md (1)" | **AGENTS.md 149, CLAUDE.md 111, .cursorrules 102, .windsurfrules 95, GEMINI.md 89, copilot-instructions.md 34** | `per-file-results.json` filename counts |
+| "35 files had zero extractions" | **430 of 580 files (74.1%)** | `per-file-results.json`: 430 entries with `extractedCount: 0` |
+| CLAUDE.md parse rate 14.1%, AGENTS.md 11.2%, .cursorrules 40.7% | CLAUDE.md 2.5%, AGENTS.md 4.9%, .cursorrules 5.2%, copilot-instructions.md 5.9% | Per-type computation from `per-file-results.json` |
+| "averaging 5.5 rules per file" | **2.1 rules per file** (among files with >0 rules) | 309 rules / 150 files with extractions |
+| "44.9% had parse rates above 20%" | **4.1% (24 files)** | `per-file-results.json`: 13 at 20-29% + 11 at 30-49% = 24/580 |
+| Names ClickHouse, Deno, PostHog, Expo | **Not in the dataset** | `per-file-results.json` has no matching repos for these orgs |
+| "unjs/* repos all had CLAUDE.md" | **No unjs repos in dataset** | Zero matches for "unjs" in `per-file-results.json` |
+| Excalidraw 16 rules, 81.2% | **9 rules, 66.1% deterministic / 71.3% semantic avg** | `e2e-verification-report.md` section 2: 9 verdicts listed |
+| PostHog 15 rules, 80% | **4 rules, 25% deterministic** | `e2e-verification-report.md` section 3 |
+| Codex 9 rules, Zed 7 rules, Cline 5 rules | **No data in any data file** | Not in `e2e-verification-report.md` or any other report file |
+| "73% of rules were non-structural" | **Cannot verify** from available data files; the E2E report only covers excalidraw (9 rules) and PostHog (4 rules), total 13 rules, not 52 |
+| "$0.06 total across 5 repos" | **$0.00 for excalidraw** (all fast-path); PostHog also 0 LLM calls; other 3 repos unverifiable | `e2e-verification-report.md` section 4 |
 
 ---
 
-## Coding standards
+## Corrected Post
 
-All code in this migration must follow the rules in `.github/copilot-instructions.md` (lines 128-142):
-
-- Named exports only, no default exports
-- kebab-case filenames
-- No `any` types anywhere
-- Full JSDoc on all public functions
-- 300-line file limit; decompose if exceeded
-- Tests validate real behavior, not wiring
-- No mocks for things that can be tested directly (exception: Anthropic API boundary)
-- Error messages include what failed and what to do about it
-- DRY: extract at 3 repetitions, not before
-- Test names describe the behavior, not the implementation
-- No em dashes anywhere (code, comments, docs, strings)
-- No magic numbers; every threshold, weight, and cutoff is a named constant with JSDoc
-- No `default` in any import/export statement
-
+```
+---
+title: We Parsed 580 AI Instruction Files. 96% of the Content Can't Be Verified.
+published: false
+description: Analysis of real CLAUDE.md, AGENTS.md, .cursorrules, and other instruction files from 568 GitHub repos. Almost everything you write in instruction files is unenforceable.
+tags: ai, programming, typescript, opensource
+cover_image: https://your-cover-image-url.png
 ---
 
-## Phase 1: Copy semantic engine into ruleprobe
+Every AI coding agent reads an instruction file. CLAUDE.md, AGENTS.md, .cursorrules, whatever your agent uses. You write rules in it. The agent says "Done." And you have no idea whether it followed any of them.
 
-### Step 1.1: Create the target directory structure
+We wanted to know what's actually inside these files. Not what people think they contain, but what a machine can extract and verify. So we scraped instruction files from 568 public GitHub repos with 10+ stars, ran them through a parser that identifies machine-verifiable rules, and counted what came out.
 
-Create `src/semantic/engine/` in the ruleprobe repo. This is where all `ruleprobe-semantic` source files will live.
+The short version: 3.8% of the lines in a typical instruction file are verifiable coding rules. The other 96% is markdown headers, code examples, project descriptions, build commands, agent behavior directives, and contextual prose.
 
-```
-src/semantic/engine/
-  index.ts                              # re-export of analyzeSemantic()
-  types.ts                              # DELETE (use existing src/semantic/types.ts)
-  rule-resolver.ts
-  llm-escalation.ts
-  fingerprint/
-    base-topics.ts
-    composite-patterns.ts
-    example-harvester.ts
-    expanded-topics.ts
-    fingerprint-cache.ts
-    fingerprint-generator.ts
-    hash-utils.ts
-    runtime-topic-extension.ts
-    topic-registry.ts
-    structural-features/
-      api-patterns.ts
-      code-style.ts
-      component-structure.ts
-      data-fetching.ts
-      error-handling.ts
-      file-organization.ts
-      file-structure-semantic.ts
-      index.ts
-      language-requirements.ts
-      logging.ts
-      naming-conventions.ts
-      shared.ts
-      state-management.ts
-      testing-patterns.ts
-      tooling.ts
-      validation.ts
-      workflow.ts
-  comparison/
-    compliance-scorer.ts
-    cross-file-checker.ts
-    fast-path-resolver.ts
-    structural-delta.ts
-    vector-similarity.ts
-  llm/
-    prompt-builder.ts
-    qualifier-prompt-builder.ts
-    response-validator.ts
-  qualifiers/
-    context-analyzer.ts
-    qualifier-resolver.ts
-```
+## The dataset
 
-### Step 1.2: Copy the files
+580 instruction files from 568 repos, including Sentry (43k stars), PingCAP/TiDB (40k), Lerna (36k), Dragonfly (30k), Kubernetes/kops (17k), javascript-obfuscator (16k), RabbitMQ (14k), Google APIs (14k), Redpanda (12k), Cloudflare (947/725), and hundreds of others. A mix of six file formats: AGENTS.md (149 files), CLAUDE.md (111), .cursorrules (102), .windsurfrules (95), GEMINI.md (89), and copilot-instructions.md (34).
 
-```bash
-# From the ruleprobe repo root
-cp -r ../ruleprobe-semantic/src/fingerprint src/semantic/engine/fingerprint
-cp -r ../ruleprobe-semantic/src/comparison src/semantic/engine/comparison
-cp -r ../ruleprobe-semantic/src/llm src/semantic/engine/llm
-cp -r ../ruleprobe-semantic/src/qualifiers src/semantic/engine/qualifiers
-cp ../ruleprobe-semantic/src/index.ts src/semantic/engine/index.ts
-cp ../ruleprobe-semantic/src/rule-resolver.ts src/semantic/engine/rule-resolver.ts
-cp ../ruleprobe-semantic/src/llm-escalation.ts src/semantic/engine/llm-escalation.ts
-```
+The parser reads each file and classifies every line: is this a rule that can be checked against code, or is it something else? "Something else" includes headers, blank lines, code blocks, explanatory prose, build instructions, and agent personality configuration.
 
-Do NOT copy `../ruleprobe-semantic/src/types.ts`. The ruleprobe repo already has `src/semantic/types.ts` with the same types. The engine files will import from the existing types file instead.
+{% card %}
+Corpus stats: 8,222 total instruction lines parsed. 309 rules extracted. 7,913 lines classified as non-rule content.
+{% endcard %}
 
-### Step 1.3: Copy the Anthropic caller
+## What instruction files actually contain
 
-The Anthropic proxy from the API service becomes a local utility. Copy it into the semantic module:
+The 96% that isn't rules breaks down into several categories. Some of it is necessary context (project structure explanations, build command documentation). Some of it is agent behavior configuration ("be succinct," "avoid providing explanations"). Some of it is just markdown formatting overhead.
 
-```bash
-cp ../ruleprobe-api-service/src/services/anthropic-proxy.ts src/semantic/anthropic-caller.ts
-```
+Here's what stood out: 430 of the 580 files (74%) had zero extractable rules. Of those, 67 were completely empty to the parser: zero extracted, zero unparseable. Many were single-line redirects. Dragonfly's .cursorrules (30k stars) says "READ AGENTS.md." Umi's .cursorrules (16k stars) contains the single word "RULE.md." Mautic's GEMINI.md says "Read and follow all instructions in ./AGENTS.md."
 
-This file creates an `LlmCaller` function from an API key. It uses native `fetch` with no SDK dependencies. Review it to confirm it matches the `LlmCaller` type signature: `(model: string, prompt: string) => Promise<string>`.
+At the other end, some files were almost entirely rules. Apache Skywalking-java's CLAUDE.md extracted 6 rules from 26 lines (23%). Cloudflare chanfana's AGENTS.md: 5 rules from 21 lines (24%). But those files tend to be short, focused lists of concrete instructions.
 
-### Step 1.4: Do NOT copy these files (they are being deleted)
+The heavy files tell a different story. javascript-obfuscator's CLAUDE.md (16k stars): 197 lines, zero rules extracted. JunDamin/hwpapi's CLAUDE.md: 100 lines, zero rules. These files are documentation with no machine-verifiable instructions embedded.
 
-From `ruleprobe-semantic`:
-- `src/types.ts` (duplicate of `src/semantic/types.ts` in the public repo)
+{% details Parse rate distribution across all 580 files %}
 
-From `ruleprobe-api-service` (entire repo is being removed):
-- `src/server.ts` (Hono HTTP server)
-- `src/routes/analyze.ts` (HTTP route)
-- `src/routes/validate.ts` (license validation route)
-- `src/routes/usage.ts` (usage tracking route)
-- `src/services/license-service.ts` (license key management)
-- `src/services/rate-limiter.ts` (per-key rate limiting)
-- `src/services/semantic-runner.ts` (thin wrapper, logic moves inline)
-- `src/storage/license-store.ts` (SQLite interface)
-- `src/storage/sqlite-store.ts` (SQLite implementation)
-- `src/types/api-types.ts` (API request/response types)
+| Parse Rate | Files | Percentage |
+|-----------|------:|----------:|
+| 0% (no rules) | 430 | 74.1% |
+| 1-9% | 70 | 12.1% |
+| 10-19% | 54 | 9.3% |
+| 20-29% | 13 | 2.2% |
+| 30-49% | 11 | 1.9% |
+| >= 80% | 2 | 0.3% |
 
----
+Only 2 files (0.3%) had parse rates at or above 80%. Nearly three quarters had zero.
 
-## Phase 2: Rewire imports in the engine files
+{% enddetails %}
 
-Every file in `src/semantic/engine/` currently imports from `'./types.js'` (the ruleprobe-semantic local types). These all need to point to the shared types file.
+## Types of content the parser correctly skips
 
-### Step 2.1: Fix type imports across all engine files
+This is worth clarifying because "3.8% extraction rate" sounds like the parser is broken. It isn't. These are lines that genuinely aren't rules:
 
-In every file under `src/semantic/engine/`, replace:
-```typescript
-import type { ... } from './types.js';
-// or
-import type { ... } from '../types.js';
-```
+Markdown structure (headers, horizontal rules, blank lines). Code examples showing how to use a function or run a command. Project descriptions explaining what the repo does. Build and deployment instructions. Links to external documentation. Agent behavior directives that have no code-level representation ("be concise," "ask before making changes"). Workflow instructions ("use this branch strategy," "run tests before pushing").
 
-With the relative path to the existing shared types:
-```typescript
-import type { ... } from '../types.js';
-// (from src/semantic/engine/*.ts, '../types.js' resolves to src/semantic/types.ts)
-```
+The parser isn't failing on these. It's correctly identifying them as not-rules. The denominator is every line in the file, not every line that looks like it could be a rule.
 
-For files in subdirectories (e.g. `src/semantic/engine/fingerprint/*.ts`), the path is:
-```typescript
-import type { ... } from '../../types.js';
-// (from src/semantic/engine/fingerprint/*.ts, '../../types.js' resolves to src/semantic/types.ts)
-```
+## What a "verifiable rule" looks like
 
-For files in `src/semantic/engine/fingerprint/structural-features/*.ts`:
-```typescript
-import type { ... } from '../../../types.js';
-```
+The 309 rules that did get extracted map to concrete checks. Things like:
 
-**Systematic approach:** Run this from the repo root to find every import that needs changing:
+- "Use camelCase for function names" (AST naming check)
+- "No any types" (TypeScript type safety check)
+- "Use named exports, not default exports" (import pattern check)
+- "Prefer const over let" (preference ratio check)
+- "Test files must exist for every source file" (filesystem check)
+- "Use Yarn, not npm" (tooling check)
 
-```bash
-grep -rn "from '\./types\|from '\.\./types" src/semantic/engine/ --include='*.ts'
-```
+Each rule gets a category, a verifier type (AST, filesystem, regex, tree-sitter, preference, tooling, config-file, or git-history), and a qualifier (always, prefer, when-possible, avoid-unless, try-to, never).
 
-Fix each one based on directory depth. The target is always `src/semantic/types.ts`.
+{% details Rule extraction by category %}
 
-### Step 2.2: Fix internal cross-references
+| Category | Rules Extracted |
+|----------|------:|
+| naming | 169 |
+| structure | 44 |
+| code-style | 29 |
+| forbidden-pattern | 24 |
+| type-safety | 20 |
+| dependency | 12 |
+| error-handling | 5 |
+| import-pattern | 4 |
+| test-requirement | 2 |
 
-The engine files import from each other using relative paths. Since the directory structure is preserved, most internal imports (`'./comparison/vector-similarity.js'`, `'./fingerprint/topic-registry.js'`, etc.) should work as-is from `src/semantic/engine/`.
+Naming rules dominate: 55% of all extracted rules. This makes sense. "Use camelCase" and "use kebab-case filenames" are the most concrete, unambiguous instructions people write.
 
-Verify with:
-```bash
-cd /home/brad/projects/ruleprobe
-npx tsc --noEmit 2>&1 | grep "semantic/engine"
-```
+{% enddetails %}
 
-Fix any remaining path mismatches. Common ones:
-- `src/semantic/engine/index.ts` imports from `'./types.js'` should become `'../types.js'`
-- `src/semantic/engine/rule-resolver.ts` imports from `'./types.js'` should become `'../types.js'`
-- `src/semantic/engine/llm-escalation.ts` imports from `'./types.js'` should become `'../types.js'`
+{% details Rule extraction by instruction file type %}
 
-### Step 2.3: Reconcile type differences
+| Type | Files | Files with Rules | Rules Extracted | Total Lines | Rate |
+|------|------:|------:|------:|------:|------:|
+| AGENTS.md | 149 | 49 | 97 | 1,961 | 4.9% |
+| CLAUDE.md | 111 | 20 | 38 | 1,501 | 2.5% |
+| .cursorrules | 102 | 37 | 79 | 1,508 | 5.2% |
+| .windsurfrules | 95 | 22 | 50 | 1,866 | 2.7% |
+| GEMINI.md | 89 | 9 | 12 | 830 | 1.4% |
+| copilot-instructions.md | 34 | 13 | 33 | 556 | 5.9% |
 
-The `ruleprobe-semantic` types file has two fields not in the public types:
+copilot-instructions.md had the highest extraction rate (5.9%), likely because those files are typically shorter and more prescriptive. GEMINI.md files had the lowest (1.4%).
 
-1. `FeatureVector.compositePatterns: Record<string, number>`: add this to `src/semantic/types.ts`
-2. `QualifierContext.variableReassigned: boolean`: add this to `src/semantic/types.ts`
-3. `SemanticVerdict.method` includes `'topic-matched-no-profile'`: verify this is in the public types
+{% enddetails %}
 
-Check for any other differences:
-```bash
-diff <(grep -E "export (type|interface|const)" ../ruleprobe-semantic/src/types.ts | sort) \
-     <(grep -E "export (type|interface|const)" src/semantic/types.ts | sort)
-```
+## E2E verification: does excalidraw follow its own instruction files?
 
-Add any missing fields to `src/semantic/types.ts`. The public types file is now the single source of truth.
+We ran the full pipeline on excalidraw (~95k stars): parse the instruction files, then verify the actual codebase against the extracted rules. Excalidraw has both a CLAUDE.md and a copilot-instructions.md.
 
-### Step 2.4: Add `LlmCaller` type to the shared types
+The parser found 9 verifiable rules across both files. Deterministic analysis scored 66.1% compliance. Semantic analysis (structural fingerprinting of 626 source files) produced 9 verdicts, all resolved via fast-path vector similarity with zero LLM calls and zero cost:
 
-The `LlmCaller` type is currently defined in `ruleprobe-semantic/src/types.ts`:
+| Rule | Compliance | Method |
+|------|-----------|--------|
+| Prefer functional components | 0.976 | structural-fast-path |
+| PascalCase type naming | 0.976 | structural-fast-path |
+| Async try/catch usage | 0.983 | structural-fast-path |
+| Contextual error logging | 0.979 | structural-fast-path |
+| Yarn as package manager | 0.50 | no matching topic |
+| TypeScript required | 0.50 | no matching topic |
+| Optional chaining preference | 0.50 | no matching topic |
+| camelCase variables | 0.50 | no matching topic |
+| UPPER_CASE constants | 0.50 | no matching topic |
 
-```typescript
-export type LlmCaller = (
-  model: string,
-  prompt: string,
-) => Promise<string>;
-```
+Rules that match established code pattern topics (component-structure, error-handling) score 0.97+, meaning the codebase's structural fingerprint strongly matches the instruction. Rules about tooling or naming conventions that don't map to structural AST patterns get a neutral 0.50.
 
-Add this to `src/semantic/types.ts` if not already present.
+The privacy test confirmed: 626 files scanned, all file IDs are opaque sequential integers, no source code strings, file paths, variable names, or comments appear in any payload sent to an LLM. In this case, no LLM was even called.
 
----
+## What this means for anyone writing instruction files
 
-## Phase 3: Replace the HTTP client path with a direct call
+If you're writing a CLAUDE.md or AGENTS.md right now, roughly 96% of what you type can't be mechanically verified. That doesn't mean it's useless. Agent behavior configuration, project context, workflow documentation all have value. But if you think you're writing enforceable rules, you're probably writing documentation.
 
-### Step 3.1: Rewrite `src/semantic/index.ts`
+To write rules that can actually be checked:
 
-The current `src/semantic/index.ts` does:
-1. Extract raw vectors locally
-2. Validate license key via HTTP
-3. Send vectors to API via HTTP
-4. Return verdicts
+**Use imperative verbs with specific targets.** "Use camelCase for all function names" is verifiable. "Follow good naming conventions" isn't.
 
-Replace it to:
-1. Extract raw vectors locally (unchanged)
-2. Create an `LlmCaller` from `ANTHROPIC_API_KEY`
-3. Call `analyzeSemantic()` directly from `src/semantic/engine/index.ts`
-4. Return verdicts
+**Specify the tool or pattern, not the principle.** "Prefer const over let" is a ratio check. "Write immutable code" is philosophy.
 
-The new flow (pseudocode):
+**Include the file patterns your rules apply to.** "All .ts files must use named exports" scopes the check. "Use named exports" is vague.
 
-```typescript
-import { extractRawVectors } from './local-extractor.js';
-import { analyzeSemantic } from './engine/index.js';
-import { createAnthropicCaller } from './anthropic-caller.js';
-import type { SemanticAnalysisConfig } from './types.js';
-import type { Rule } from '../types.js';
+**Keep rules and documentation separate.** Rules are instructions. Documentation explains why. Mixing them dilutes both.
 
-export async function analyzeProjectSemantic(
-  projectDir: string,
-  config: SemanticAnalysisConfig,
-  rules: Rule[],
-): Promise<SemanticPipelineResult> {
-  // 1. Extract locally (unchanged)
-  const payload = await extractRawVectors(projectDir);
-  payload.rules = rules.map(ruleToPayload);
+{% cta https://github.com/moonrunnerkc/ruleprobe %}
+RuleProbe on GitHub: parse your own instruction files and see what's actually verifiable
+{% endcta %}
 
-  // 2. Create local LLM caller
-  const llmCaller = createAnthropicCaller({
-    apiKey: config.anthropicApiKey,
-  });
+## The tool
 
-  // 3. Run engine directly
-  const report = await analyzeSemantic(payload, llmCaller, {
-    fastPathThreshold: config.fastPathThreshold,
-    maxLlmCalls: config.maxLlmCalls,
-    useCache: config.useCache,
-  });
-
-  return {
-    performed: true,
-    verdicts: report.verdicts,
-    report,
-    sentPayload: payload,
-  };
-}
-```
-
-Key changes:
-- Remove all HTTP calls (`validateLicense`, `analyzeRemote`)
-- Remove all license validation logic
-- Remove retry/timeout logic (no network calls except Anthropic API, which has its own timeout)
-- Import `analyzeSemantic` from `'./engine/index.js'` instead of calling it over HTTP
-- Import `createAnthropicCaller` from `'./anthropic-caller.js'`
-
-Keep `integrateSemanticResults()` and `ruleToPayload()` unchanged (they don't touch the network).
-
-### Step 3.2: Delete `src/semantic/client.ts`
-
-This file is the HTTP client that talked to the API service. It is completely replaced by the direct call above. Delete it.
+RuleProbe is the parser and verifier behind this analysis. It reads 7 instruction file formats, extracts machine-verifiable rules using 102 built-in matchers across 14 categories, and checks agent output against each one. Deterministic by default, no API keys needed for the core pipeline. Optional semantic analysis for pattern-matching and consistency rules.
 
 ```bash
-rm src/semantic/client.ts
+npx ruleprobe parse CLAUDE.md --show-unparseable
+npx ruleprobe verify CLAUDE.md ./src --format summary
 ```
 
-### Step 3.3: Rewrite `src/semantic/config.ts`
+The `--show-unparseable` flag shows you exactly which lines were skipped and why. That's often the most useful output: it tells you which of your "rules" aren't rules at all.
 
-The current `config.ts` resolves:
-- `licenseKey` (CLI flag > env var `RULEPROBE_LICENSE_KEY` > dotfile)
-- `apiEndpoint` (env var > dotfile > localhost:3000)
-
-Replace with:
-- `anthropicApiKey` (CLI flag `--anthropic-key` > env var `ANTHROPIC_API_KEY` > dotfile)
-- Remove `apiEndpoint` entirely (no remote server)
-- Remove `licenseKey` entirely
-
-The new config resolution follows the same pattern `--llm-extract` already uses for `OPENAI_API_KEY`:
-
-```typescript
-export function resolveSemanticConfig(
-  projectDir: string,
-  cliOptions: SemanticCliOptions,
-): SemanticAnalysisConfig | null {
-  const dotfile = readDotfileConfig(projectDir);
-
-  const anthropicApiKey =
-    cliOptions.anthropicKey ??
-    process.env['ANTHROPIC_API_KEY'] ??
-    dotfile?.anthropicApiKey ??
-    undefined;
-
-  if (anthropicApiKey === undefined) {
-    return null;
-  }
-
-  return {
-    anthropicApiKey,
-    maxLlmCalls: cliOptions.maxLlmCalls ?? DEFAULT_MAX_LLM_CALLS,
-    useCache: cliOptions.noCache !== true,
-    fastPathThreshold: PRE_CALIBRATION_FAST_PATH_THRESHOLD,
-  };
-}
-```
-
-### Step 3.4: Update `SemanticAnalysisConfig` in `src/semantic/types.ts`
-
-Change from:
-```typescript
-export interface SemanticAnalysisConfig {
-  apiEndpoint: string;
-  licenseKey: string;
-  model?: string;
-  maxLlmCalls?: number;
-  useCache?: boolean;
-  fastPathThreshold?: number;
-}
-```
-
-To:
-```typescript
-export interface SemanticAnalysisConfig {
-  anthropicApiKey: string;
-  maxLlmCalls?: number;
-  useCache?: boolean;
-  fastPathThreshold?: number;
-}
-```
-
-Remove `apiEndpoint`, `licenseKey`, and `model` (model is hardcoded in the prompt builder as `SEMANTIC_MODEL`).
-
----
-
-## Phase 4: Update CLI flags
-
-### Step 4.1: Replace `--license-key` with `--anthropic-key` in `src/cli.ts`
-
-Find the analyze command option definitions (around line 185-202):
-
-Remove:
-```typescript
-.option('--license-key <key>', 'license key for semantic tier')
-```
-
-Replace with:
-```typescript
-.option('--anthropic-key <key>', 'Anthropic API key for semantic analysis')
-```
-
-Update the options type accordingly:
-```typescript
-// Before
-licenseKey?: string;
-// After
-anthropicKey?: string;
-```
-
-Keep these flags unchanged:
-- `--semantic` (unchanged, enables semantic analysis)
-- `--max-llm-calls <n>` (unchanged)
-- `--no-cache` (unchanged)
-- `--semantic-log` (unchanged)
-- `--cost-report` (unchanged)
-
-### Step 4.2: Update `src/commands/analyze.ts`
-
-Change the semantic block (around lines 82-105):
-
-Before:
-```typescript
-const cliOptions: SemanticCliOptions = {
-  licenseKey: opts.licenseKey,
-  ...
-};
-const config = resolveSemanticConfig(resolvedDir, cliOptions);
-if (config === null) {
-  process.stderr.write(
-    'Semantic analysis requires a license key. ' +
-    'Set --license-key, RULEPROBE_LICENSE_KEY env var, or .ruleprobe/config.json.\n',
-  );
-}
-```
-
-After:
-```typescript
-const cliOptions: SemanticCliOptions = {
-  anthropicKey: opts.anthropicKey,
-  ...
-};
-const config = resolveSemanticConfig(resolvedDir, cliOptions);
-if (config === null) {
-  process.stderr.write(
-    'Semantic analysis requires an Anthropic API key. ' +
-    'Set --anthropic-key, ANTHROPIC_API_KEY env var, or .ruleprobe/config.json.\n',
-  );
-}
-```
-
-### Step 4.3: Update `SemanticCliOptions` in `src/semantic/config.ts`
-
-```typescript
-// Before
-export interface SemanticCliOptions {
-  licenseKey?: string;
-  maxLlmCalls?: number;
-  noCache?: boolean;
-  semanticLog?: boolean;
-  costReport?: boolean;
-}
-
-// After
-export interface SemanticCliOptions {
-  anthropicKey?: string;
-  maxLlmCalls?: number;
-  noCache?: boolean;
-  semanticLog?: boolean;
-  costReport?: boolean;
-}
+{% embed https://github.com/moonrunnerkc/ruleprobe %}
 ```
 
 ---
 
-## Phase 5: Copy and adapt tests
-
-### Step 5.1: Copy semantic engine tests
-
-```bash
-# From ruleprobe repo root
-mkdir -p tests/semantic/engine
-cp -r ../ruleprobe-semantic/tests/comparison tests/semantic/engine/comparison
-cp -r ../ruleprobe-semantic/tests/fingerprint tests/semantic/engine/fingerprint
-cp -r ../ruleprobe-semantic/tests/llm tests/semantic/engine/llm
-cp -r ../ruleprobe-semantic/tests/qualifiers tests/semantic/engine/qualifiers
-cp ../ruleprobe-semantic/tests/index.test.ts tests/semantic/engine/index.test.ts
-```
-
-### Step 5.2: Fix test imports
-
-Same pattern as Step 2.1. Every test file imports from the source files, so paths change:
-
-```bash
-# Find all test imports that reference source files
-grep -rn "from '.*src/" tests/semantic/engine/ --include='*.ts'
-```
-
-Tests in `ruleprobe-semantic` imported like `'../../src/comparison/vector-similarity.js'`. In the new layout, they should import like `'../../../src/semantic/engine/comparison/vector-similarity.js'`.
-
-Systematic approach: the relative path from `tests/semantic/engine/<subdir>/<file>.test.ts` to `src/semantic/engine/<subdir>/<file>.ts` is `../../../../src/semantic/engine/<subdir>/<file>.js`.
-
-From `tests/semantic/engine/<file>.test.ts` to `src/semantic/engine/<file>.ts` is `../../../src/semantic/engine/<file>.js`.
-
-### Step 5.3: Delete API service tests (not migrating)
-
-Do NOT copy any tests from `ruleprobe-api-service`. These tested:
-- HTTP routes (no longer exist)
-- License service (removed)
-- Rate limiter (removed)
-- SQLite store (removed)
-- Semantic runner (was a thin wrapper, now inline)
-- Anthropic proxy (the only one worth keeping, handle in Step 5.4)
-
-### Step 5.4: Add a test for the Anthropic caller
-
-Create `tests/semantic/anthropic-caller.test.ts` that tests `createAnthropicCaller()`. Use a mock HTTP server (this is the acceptable mock boundary, same as the existing client tests). Port the relevant tests from `ruleprobe-api-service/tests/services/anthropic-proxy.test.ts`.
-
-### Step 5.5: Update existing semantic client tests
-
-The tests in `tests/semantic/client.test.ts` test the HTTP client. These are no longer needed. Delete:
-
-```bash
-rm tests/semantic/client.test.ts
-```
-
-Update `tests/semantic/index.test.ts` to test the new direct-call flow instead of the HTTP-based flow. The mock should now mock `analyzeSemantic` from the engine (or better: test with a mock `LlmCaller` that returns canned responses, exercising the real engine).
-
-Update `tests/semantic/config.test.ts` to test `ANTHROPIC_API_KEY` resolution instead of `RULEPROBE_LICENSE_KEY`.
-
-### Step 5.6: Verify test count
-
-Before this migration, the three repos had:
-- ruleprobe: 864 tests
-- ruleprobe-semantic: 221 tests
-- ruleprobe-api-service: 54 tests
-- Total: 1,139
-
-After migration, expect:
-- ruleprobe: 864 + 221 = 1,085 tests (minus the deleted HTTP client tests, plus new Anthropic caller tests)
-- API service tests (54): deleted, not migrated
-
-Verify with `npx vitest run` and confirm all tests pass.
-
----
-
-## Phase 6: Update `src/semantic/types.ts` (single source of truth)
-
-### Step 6.1: Add missing fields from the semantic engine types
-
-Compare `src/semantic/types.ts` (public repo) with the now-deleted `ruleprobe-semantic/src/types.ts`. Add any fields present in the engine types but missing from the public types:
-
-1. `FeatureVector.compositePatterns: Record<string, number>` with JSDoc:
-   ```typescript
-   /**
-    * Multi-node conjunction counts.
-    * Each key is a composite pattern name (e.g. "try-catch-with-logging");
-    * the value is the normalized per-file count of files exhibiting that
-    * conjunction.
-    */
-   compositePatterns: Record<string, number>;
-   ```
-
-2. `QualifierContext.variableReassigned: boolean` with JSDoc:
-   ```typescript
-   /**
-    * Whether the file contains variable reassignments.
-    * Justifies using let over const or mutable state patterns.
-    */
-   variableReassigned: boolean;
-   ```
-
-3. Verify `SemanticVerdict.method` includes all variants:
-   ```typescript
-   method: 'structural-fast-path' | 'llm-assisted' | 'not-verifiable' | 'topic-matched-no-profile';
-   ```
-
-4. Add or verify `LlmCaller` type:
-   ```typescript
-   export type LlmCaller = (
-     model: string,
-     prompt: string,
-   ) => Promise<string>;
-   ```
-
-### Step 6.2: Remove server-specific types
-
-Remove `SemanticAnalysisConfig.apiEndpoint` and `SemanticAnalysisConfig.licenseKey` (done in Phase 3).
-
-Remove types from the deleted `ruleprobe-api-service/src/types/api-types.ts` that appear nowhere else. These include HTTP request/response shapes, license validation types, etc. If any of them leaked into the public types file, remove them.
-
----
-
-## Phase 7: Update vitest configuration
-
-### Step 7.1: Ensure new test paths are included
-
-Check `vitest.config.ts`. The test matcher should already cover `tests/semantic/**` since the semantic tests were added in v3.0.0. Confirm it also matches the deeper `tests/semantic/engine/**` subdirectories.
-
-If the config uses an explicit include pattern, update it:
-```typescript
-include: ['tests/**/*.test.ts'],
-```
-
-### Step 7.2: Run the full test suite
-
-```bash
-npx vitest run
-```
-
-Fix any failures. Common issues:
-- Import path mismatches (Phase 2 did not catch all)
-- Missing type fields (Phase 6 did not add all)
-- Tests that mocked the HTTP client need to mock the engine or LlmCaller instead
-
----
-
-## Phase 8: Update documentation
-
-### Step 8.1: Update README.md
-
-**"Why" section (line ~22):** Remove "Optional semantic analysis (paid tier)". Replace with "Optional semantic analysis for pattern-matching and consistency rules."
-
-**"Semantic Analysis (Paid Tier)" section:** Rename to "Semantic Analysis". Remove all mentions of:
-- "paid tier"
-- license keys
-- API service
-- "RuleProbe API service"
-- "vectors are sent to the RuleProbe API service"
-
-Replace the description with something like:
-> RuleProbe extracts raw AST vectors locally and runs structural fingerprinting and similarity analysis to score compliance. An LLM is consulted only when vector similarity is ambiguous. Requires `ANTHROPIC_API_KEY`.
-
-Update the flag table:
-- Remove `--license-key <key>` row
-- Add `--anthropic-key <key>` with description: "Anthropic API key (also: `ANTHROPIC_API_KEY` env var or `.ruleprobe/config.json`)"
-
-Update the example commands:
-```bash
-# Before
-ruleprobe analyze ./my-project --semantic --license-key <key>
-# After
-ruleprobe analyze ./my-project --semantic
-# (assumes ANTHROPIC_API_KEY is set as env var)
-```
-
-**Authentication table:** Replace the "Semantic analysis" row:
-- Flag: `--semantic`
-- Required env var: `ANTHROPIC_API_KEY`
-- When you need it: "Structural pattern and consistency checks"
-
-Remove `RULEPROBE_LICENSE_KEY` from everywhere.
-
-**Security section:** Update to reflect that all analysis runs locally. The only network calls are to the Anthropic API for LLM judgment, and those follow the same pattern as `--llm-extract` with OpenAI.
-
-**Troubleshooting:** Replace "Semantic analysis skipped / license key errors" with guidance about `ANTHROPIC_API_KEY`.
-
-**What's New in v3.0.0:** This section becomes partially inaccurate. Either update it to reflect the consolidation or add a "What's New in v4.0.0" section below it.
-
-### Step 8.2: Update `docs/release-v3.0.0.md`
-
-This document heavily references the three-repo architecture. Add a note at the top:
-
-> **Note:** v4.0.0 consolidated the three-repo architecture into a single repo. The semantic engine now runs locally. See [docs/release-v4.0.0.md](release-v4.0.0.md) for details.
-
-### Step 8.3: Create `docs/release-v4.0.0.md`
-
-Document:
-- Architecture change: three repos to one
-- Semantic analysis is now fully open source (MIT)
-- `--license-key` replaced by `ANTHROPIC_API_KEY`
-- No API service required
-- All analysis runs locally
-- Files added/removed/moved
-- Test count changes
-- Breaking changes (CLI flag rename, removed API service)
-
-### Step 8.4: Update `docs/cli-reference.md`
-
-Replace `--license-key` with `--anthropic-key`. Remove any mentions of API endpoints, license tiers, etc.
-
-### Step 8.5: Update `docs/api-reference.md`
-
-Remove any references to the API service, license validation, or remote analysis. The programmatic API now includes `analyzeSemantic()` as a direct export.
-
-### Step 8.6: Update `SECURITY.md`
-
-Update the security model. Previously: "vectors sent to RuleProbe API service." Now: "all analysis runs locally; LLM calls go directly to Anthropic's API with the user's own key."
-
-### Step 8.7: Update `.github/copilot-instructions.md`
-
-This file is the root cause of the three-repo architecture. It should be rewritten to reflect the single-repo reality. Key changes:
-- Remove "Critical: Three-Repo Architecture" section
-- Remove all references to `ruleprobe-semantic` and `ruleprobe-api-service` as separate repos
-- Update the project structure to show `src/semantic/engine/` as part of the main repo
-- Remove license key, billing, and API service sections
-- Remove "What NOT to Do" items about proprietary logic separation
-- Keep all coding standards (they apply equally to the single repo)
-
----
-
-## Phase 9: Update `package.json`
-
-### Step 9.1: Check for new dependencies
-
-The semantic engine (`ruleprobe-semantic`) has zero runtime dependencies (it uses only Node built-ins and the types from the public repo). No new dependencies needed.
-
-The Anthropic caller (`anthropic-proxy.ts`) uses native `fetch`. No SDK dependency needed.
-
-Verify: the Hono, better-sqlite3, and uuid dependencies from `ruleprobe-api-service` are NOT needed. Do not add them.
-
-### Step 9.2: Version bump
-
-Bump `package.json` version to `4.0.0` (this is a breaking change: CLI flag renamed, API service removed).
-
----
-
-## Phase 10: Clean up and verify
-
-### Step 10.1: Delete dead code
-
-```bash
-# HTTP client (replaced by direct call)
-rm src/semantic/client.ts
-
-# HTTP client tests
-rm tests/semantic/client.test.ts
-```
-
-### Step 10.2: Remove unused imports
-
-Run:
-```bash
-npx tsc --noEmit 2>&1 | grep "declared but"
-```
-
-Fix any unused imports across the codebase.
-
-### Step 10.3: Check 300-line limit
-
-```bash
-find src/semantic/engine -name '*.ts' -exec sh -c 'lines=$(wc -l < "$1"); if [ "$lines" -gt 300 ]; then echo "$1: $lines lines"; fi' _ {} \;
-```
-
-If any files from `ruleprobe-semantic` exceed 300 lines, decompose them per the coding standards.
-
-### Step 10.4: Check no `any` types
-
-```bash
-grep -rn ": any\b\|as any\b\|<any>" src/semantic/engine/ --include='*.ts'
-```
-
-Fix any occurrences.
-
-### Step 10.5: Check no default exports
-
-```bash
-grep -rn "export default\|export { .* as default" src/semantic/engine/ --include='*.ts'
-```
-
-Fix any occurrences.
-
-### Step 10.6: Check no em dashes
-
-```bash
-grep -rn '—' src/semantic/engine/ --include='*.ts'
-```
-
-Fix any occurrences.
-
-### Step 10.7: Run full test suite
-
-```bash
-npx vitest run
-```
-
-All tests must pass. No exceptions.
-
-### Step 10.8: Run typecheck
-
-```bash
-npx tsc --noEmit
-```
-
-Zero errors.
-
-### Step 10.9: Test the actual CLI
-
-```bash
-# Without --semantic (should work unchanged)
-npx tsx src/cli.ts analyze .
-
-# With --semantic (should require ANTHROPIC_API_KEY)
-npx tsx src/cli.ts analyze . --semantic
-# Expected: error message about ANTHROPIC_API_KEY
-
-# With --semantic and a key
-ANTHROPIC_API_KEY=sk-ant-... npx tsx src/cli.ts analyze . --semantic --cost-report
-```
-
----
-
-## Phase 11: Archive private repos
-
-### Step 11.1: Archive on GitHub
-
-After confirming everything works in the single repo:
-
-1. Go to https://github.com/moonrunnerkc/ruleprobe-semantic/settings
-2. Scroll to "Danger Zone" > "Archive this repository"
-3. Archive it
-
-4. Go to https://github.com/moonrunnerkc/ruleprobe-api-service/settings
-5. Archive it
-
-Archiving (not deleting) preserves the git history in case you need to reference it later.
-
-### Step 11.2: Remove local clones (optional)
-
-```bash
-rm -rf ../ruleprobe-semantic
-rm -rf ../ruleprobe-api-service
-```
-
-### Step 11.3: Stop the local API service
-
-If the API service is still running locally (the `curl http://localhost:3737/health` from earlier), stop it:
-
-```bash
-# Find and kill the process
-lsof -ti :3737 | xargs kill
-```
-
----
-
-## Phase 12: Commit and release
-
-### Step 12.1: Commit
-
-```bash
-git add -A
-git commit -m "v4.0.0: consolidate three repos into one, open-source semantic tier
-
-- Move ruleprobe-semantic engine (40 files, ~3,600 lines) into src/semantic/engine/
-- Move Anthropic caller from ruleprobe-api-service into src/semantic/
-- Replace --license-key with ANTHROPIC_API_KEY (same pattern as --llm-extract)
-- Remove HTTP client, license validation, API service dependency
-- All analysis runs locally; no server required
-- Semantic tier is now fully open source (MIT)
-- Delete client.ts, rewrite config.ts and index.ts
-- Port 18 test files from ruleprobe-semantic (~3,100 lines)
-- Update README, docs, CLI reference, security model
-- Breaking: --license-key flag removed, use ANTHROPIC_API_KEY env var"
-```
-
-### Step 12.2: Tag and push
-
-```bash
-git tag -a v4.0.0 -m "v4.0.0: single-repo consolidation, open-source semantic tier"
-git push origin main --tags
-```
-
-### Step 12.3: Create GitHub release
-
-```bash
-gh release create v4.0.0 \
-  --title "v4.0.0: Open-Source Semantic Tier" \
-  --latest \
-  --notes-file docs/release-v4.0.0.md
-```
-
-### Step 12.4: Publish to npm
-
-```bash
-npm publish
-```
-
----
-
-## Summary of what changes
-
-| What | Before | After |
-|------|--------|-------|
-| Repos | 3 (1 public, 2 private) | 1 (public) |
-| Semantic analysis | Server-side via API | Local, runs on user's machine |
-| LLM calls | Proxied through API service | Direct to Anthropic from user's machine |
-| Auth for semantic | `RULEPROBE_LICENSE_KEY` | `ANTHROPIC_API_KEY` |
-| Server to deploy | Yes (Hono + SQLite on VPS) | None |
-| Payment infrastructure | Stubbed, never built | None needed |
-| License | MIT (public) + proprietary (private) | MIT (everything) |
-| Contributor access | Could not see semantic engine | Full visibility |
-
-| Files | Added to ruleprobe | Deleted from ruleprobe |
-|-------|-------------------:|----------------------:|
-| Source (from ruleprobe-semantic) | 39 | 0 |
-| Source (Anthropic caller) | 1 | 0 |
-| Source (deleted client.ts) | 0 | 1 |
-| Tests (from ruleprobe-semantic) | 18 | 0 |
-| Tests (deleted client tests) | 0 | 1 |
-| **Net** | **+58 files** | **-2 files** |
+## Evidence Index
+
+Every number in the corrected post maps to a data file:
+
+| Claim | Source file | How to verify |
+|---|---|---|
+| 580 files, 568 repos | `scraped-instructions/per-file-results.json` | `len(data)` = 580, `len(set(repo))` = 568 |
+| 8,222 total lines | `scraped-instructions/analysis.json` | `totalInstructionLines: 8222` |
+| 309 rules extracted | `scraped-instructions/all-extracted.json` | `len(data)` = 309 |
+| 7,913 unparseable | `scraped-instructions/analysis.json` | `totalUnparseable: 7913` |
+| 3.8% extraction rate | computed | 309 / 8222 = 0.0376 |
+| 430 files zero extraction | `per-file-results.json` | count where `extractedCount == 0` |
+| 67 files 0/0 | `per-file-results.json` | count where both counts are 0 |
+| File type breakdown | `per-file-results.json` | count by filename pattern |
+| Per-type rates | `per-file-results.json` | sum extracted/total per type |
+| Category distribution | `all-extracted.json` | count by `category` field |
+| Parse rate distribution | `per-file-results.json` | bucket by `extractionRate` field (integer %) |
+| Named repos (Sentry 43k, TiDB 40k, etc.) | `per-file-results.json` | sort by `stars` field |
+| Redirect examples (Dragonfly, Umi, Mautic) | `scraped-instructions/files/` | actual file content verified |
+| 102 matchers, 14 categories | `docs/matchers.md` | category summary table sums to 102 |
+| Excalidraw 9 rules, 66.1% | `docs/verification/e2e-verification-report.md` sect. 2 | verbatim from report |
+| Excalidraw 9 semantic verdicts, 0 LLM calls | `e2e-verification-report.md` sect. 2 + 4 | verbatim |
+| Excalidraw verdict scores (0.976, 0.983, etc.) | `e2e-verification-report.md` sect. 2 | verdict table |
+| Privacy: 626 files, opaque IDs, 13 patterns passed | `e2e-verification-report.md` sect. 5 | verbatim |

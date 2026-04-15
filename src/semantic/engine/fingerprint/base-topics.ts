@@ -275,6 +275,7 @@ export const BASE_TOPICS: ReadonlyArray<TopicDefinition> = [
  *
  * Updated from 10 to 15 after adding tooling, code-style,
  * language-requirements, workflow, and file-structure-semantic topics.
- * Source: not-verifiable audit of 43/52 rules from 5-repo E2E run.
+ * Source: rule category analysis of excalidraw (9 rules) and PostHog (4 rules)
+ * E2E runs; see docs/verification/e2e-verification-report.md.
  */
 export const BASE_TOPIC_COUNT = 15;
